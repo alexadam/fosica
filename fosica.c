@@ -1,10 +1,13 @@
 #include <math.h>
-#include <portaudio.h>
 #include <pthread.h>
 #include <samplerate.h>
 #include <sndfile.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <portaudio.h>
+
+//#include "/usr/local/include/portaudio.h"
+//#include "libs/portaudio/include/portaudio.h"
 
 /*
  gcc  -std=c99 -lsndfile -lportaudio -lsamplerate -o fosica fosica.c
@@ -13,8 +16,6 @@
 //--------
 // root
 //--------
-
-typedef unsigned long uLong;
 
 //--------
 // Effects
@@ -704,7 +705,7 @@ void soundGenFunction(sndData * data, track * cTrack) {
 
     int repeat = totalFrames;
 
-    printf("\nt %d %d %d", (*cTrack).index, cTrack->nrOfPoints, index);
+//    printf("\nt %d %d %l", (*cTrack).index, cTrack->nrOfPoints, index);
 
     int currentSeq = -1;
     int nrOfPoints = cTrack->nrOfPoints;
@@ -713,7 +714,7 @@ void soundGenFunction(sndData * data, track * cTrack) {
 
     for (int i = 0; i < data->dataLength; i += data->nrOfChannels) {
         for (int ch = 0; ch < data->nrOfChannels; ch++) {
-            uLong cIndex = (index + i + ch) % repeat;
+            unsigned long cIndex = (index + i + ch) % repeat;
 
             for (int p = 0; p < nrOfPoints; p += 2) {
                 if (cIndex >= (cTrack->points[p] * framesPerSeq) && cIndex <= (cTrack->points[p + 1] * framesPerSeq)) {
@@ -725,7 +726,7 @@ void soundGenFunction(sndData * data, track * cTrack) {
             }
 
             if (currentSeq > -1) {
-                uLong goodIndex = (cIndex - (cTrack->points[currentSeq] * framesPerSeq));
+            	unsigned long goodIndex = (cIndex - (cTrack->points[currentSeq] * framesPerSeq));
 
                 float val = 0.0;
 

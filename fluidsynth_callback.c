@@ -14,7 +14,9 @@
  */
 
 /*
-gcc -std=c99 -lfluidsynth -o test fluidsynth_callback.c
+
+gcc -std=c99 -o test fluidsynth_callback.c -L/usr/lib64 -lfluidsynth -Wl,-rpath -Wl,/usr/lib64
+
 */
 
 #include <stdio.h>

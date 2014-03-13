@@ -14,7 +14,9 @@
  */
 
 /*
-gcc -std=c99 -lfluidsynth -o test fluidsynth_midi2wav.c
+
+gcc -std=c99 -o test fluidsynth_midi2wav.c -L/usr/lib64 -lfluidsynth -Wl,-rpath -Wl,/usr/lib64
+
 */
 
 #include <stdio.h>

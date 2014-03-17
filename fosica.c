@@ -10,7 +10,8 @@
 //#include "libs/portaudio/include/portaudio.h"
 
 /*
- gcc  -std=c99 -lsndfile -lportaudio -lsamplerate -o fosica fosica.c
+ 	gcc  -std=c99 -o fosica fosica.c  -lpthread -lm -L/usr/local/lib -lportaudio -lsndfile -lsamplerate -Wl,-rpath -Wl,/usr/local/lib
+
  */
 
 //--------
@@ -44,29 +45,41 @@ void silenceGen(float * data, long lengthInSamples) {
 
 typedef struct
 {
+    float * data;
     int nrOfFrames;
     int nrOfChannels;
     int samplingRate;
     int left_phase;
     int right_phase;
     int dataLength;
-    float * data;
 }
 sndData;
 
 typedef struct
 {
-    int index;
-    void (* f)(sndData * data, int index); //TODO change int to long
-
-    int nrOfSeqs;
-    int tempo;
-    int nrOfPoints;
-    int * points;
     char * instructions;
+    int start;
+    int stop;
+}
+sequence;
+
+typedef struct
+{
+    sequence * sequences;
+    int nrOfSeqs;
+    int totalNrOfSeqs;
+    int index;
+    int tempo;
     int forceStopSound;
 }
 track;
+
+typedef struct
+{
+    sndData snd;
+    int id;
+}
+cachedSnd;
 
 sndData resample(sndData * data, int newSamplingRate);
 double apply_gain(float * data, long frames, int channels, double max, double gain);
@@ -92,8 +105,7 @@ sndData resample(sndData * data, int newSamplingRate) {
     SRC_DATA src_data;
     int error;
 
-    if ((src_state = src_new(SRC_SINC_BEST_QUALITY, data->nrOfChannels, &error))
-            == NULL) {
+    if ((src_state = src_new(SRC_SINC_BEST_QUALITY, data->nrOfChannels, &error)) == NULL) {
         printf("\n\nError : src_new() failed : %s.\n\n", src_strerror(error));
         exit(1);
     };
@@ -413,98 +425,103 @@ void init() {
     track t1;
     t1.index = nrOfTracks;
     t1.tempo = 240;
-    t1.nrOfSeqs = 32;
-    t1.instructions = "sounds/hat.wav";
-    int points1[36] = {0,1, 1,2, 2,3, 3,4, 7,8, 8,9, 9,10, 10,11, 11,12, 16,17, 17,18, 18,19, 19,20, 23,24, 24,25, 25,26, 26,27, 27,28};
-    t1.points = points1;
-    t1.nrOfPoints = sizeof(points1) / sizeof(int);
-    t1.forceStopSound = 0;
+    t1.nrOfSeqs = 5;
+    t1.sequences = (sequence *)malloc(t1.nrOfSeqs * sizeof(sequence));
+    t1.totalNrOfSeqs = 32;
+
+    for (int var = 0; var < t1.nrOfSeqs; ++var) {
+		t1.sequences[var].start = var;
+		t1.sequences[var].stop = var + 1;
+    	t1.sequences[var].instructions = "sounds/hat.wav";
+	}
+
+    t1.forceStopSound = 1;
     tracks[nrOfTracks] = t1;
     nrOfTracks++;
 
-    track t2;
-    t2.index = nrOfTracks;
-    t2.tempo = 240;
-    t2.nrOfSeqs = 32;
-    t2.instructions = "sounds/shaker.wav";
-    int points2[64] = {0,1, 1,2, 2,3, 3,4, 4,5, 5,6, 6,7, 7,8, 8,9, 9,10, 10,11, 11,12, 12,13, 13,14, 14,15, 15,16, 16,17, 17,18, 18,19, 19,20, 20,21, 21,22, 22,23, 23,24, 24,25, 25,26, 26,27, 27,28, 28,29, 29,30, 30,31, 31,32};
-    t2.points = points2;
-    t2.nrOfPoints = sizeof(points2) / sizeof(int);
-    t2.forceStopSound = 0;
-    tracks[nrOfTracks] = t2;
-    nrOfTracks++;
-
-    track t3;
-    t3.index = nrOfTracks;
-    t3.tempo = 240;
-    t3.nrOfSeqs = 32;
-    t3.instructions = "sounds/tamb.wav";
-    int points3[8] = {4, 12,12, 20,20, 28,28, 32};
-    t3.points = points3;
-    t3.nrOfPoints = sizeof(points3) / sizeof(int);
-    t3.forceStopSound = 0;
-    tracks[nrOfTracks] = t3;
-    nrOfTracks++;
-
-    track t4;
-    t4.index = nrOfTracks;
-    t4.tempo = 240;
-    t4.nrOfSeqs = 32;
-    t4.instructions = "sounds/clap.wav";
-    int points4[14] = {4,12, 12,20, 20,21, 21,23, 23,25, 25,28, 28,32};
-    t4.points = points4;
-    t4.nrOfPoints = sizeof(points4) / sizeof(int);
-    t4.forceStopSound = 0;
-    tracks[nrOfTracks] = t4;
-    nrOfTracks++;
-
-    track t5;
-    t5.index = nrOfTracks;
-    t5.tempo = 240;
-    t5.nrOfSeqs = 32;
-    t5.instructions = "sounds/organic2.wav";
-    int points5[10] = {2,10, 10,18, 18,21, 21,26, 26,32};
-    t5.points = points5;
-    t5.nrOfPoints = sizeof(points5) / sizeof(int);
-    t5.forceStopSound = 0;
-    tracks[nrOfTracks] = t5;
-    nrOfTracks++;
-
-    track t6;
-    t6.index = nrOfTracks;
-    t6.tempo = 240;
-    t6.nrOfSeqs = 32;
-    t6.instructions = "sounds/organic1.wav";
-    int points6[16] = {1,7, 7,9, 9,15, 15,17, 17,23, 23,25, 25,31, 31,32};
-    t6.points = points6;
-    t6.nrOfPoints = sizeof(points6) / sizeof(int);
-    t6.forceStopSound = 1;
-    tracks[nrOfTracks] = t6;
-    nrOfTracks++;
-
-    track t7;
-    t7.index = nrOfTracks;
-    t7.tempo = 240;
-    t7.nrOfSeqs = 32;
-    t7.instructions = "sounds/tom.wav";
-    int points7[12] = {1,3, 3,6, 6,17, 17,19, 19,22, 22,32};
-    t7.points = points7;
-    t7.nrOfPoints = sizeof(points7) / sizeof(int);
-    t7.forceStopSound = 1;
-    tracks[nrOfTracks] = t7;
-    nrOfTracks++;
-
-    track t8;
-    t8.index = nrOfTracks;
-    t8.tempo = 240;
-    t8.nrOfSeqs = 32;
-    t8.instructions = "sounds/kick.wav";
-    int points8[16] = {0,4, 4,8, 8,12, 12,16, 16,20, 20,24, 24,28, 28,32};
-    t8.points = points8;
-    t8.nrOfPoints = sizeof(points8) / sizeof(int);
-    t8.forceStopSound = 1;
-    tracks[nrOfTracks] = t8;
-    nrOfTracks++;
+//    track t2;
+//    t2.index = nrOfTracks;
+//    t2.tempo = 240;
+//    t2.nrOfSeqs = 32;
+//    t2.instructions = "sounds/shaker.wav";
+//    int points2[64] = {0,1, 1,2, 2,3, 3,4, 4,5, 5,6, 6,7, 7,8, 8,9, 9,10, 10,11, 11,12, 12,13, 13,14, 14,15, 15,16, 16,17, 17,18, 18,19, 19,20, 20,21, 21,22, 22,23, 23,24, 24,25, 25,26, 26,27, 27,28, 28,29, 29,30, 30,31, 31,32};
+//    t2.points = points2;
+//    t2.nrOfPoints = sizeof(points2) / sizeof(int);
+//    t2.forceStopSound = 0;
+//    tracks[nrOfTracks] = t2;
+//    nrOfTracks++;
+//
+//    track t3;
+//    t3.index = nrOfTracks;
+//    t3.tempo = 240;
+//    t3.nrOfSeqs = 32;
+//    t3.instructions = "sounds/tamb.wav";
+//    int points3[8] = {4, 12,12, 20,20, 28,28, 32};
+//    t3.points = points3;
+//    t3.nrOfPoints = sizeof(points3) / sizeof(int);
+//    t3.forceStopSound = 0;
+//    tracks[nrOfTracks] = t3;
+//    nrOfTracks++;
+//
+//    track t4;
+//    t4.index = nrOfTracks;
+//    t4.tempo = 240;
+//    t4.nrOfSeqs = 32;
+//    t4.instructions = "sounds/clap.wav";
+//    int points4[14] = {4,12, 12,20, 20,21, 21,23, 23,25, 25,28, 28,32};
+//    t4.points = points4;
+//    t4.nrOfPoints = sizeof(points4) / sizeof(int);
+//    t4.forceStopSound = 0;
+//    tracks[nrOfTracks] = t4;
+//    nrOfTracks++;
+//
+//    track t5;
+//    t5.index = nrOfTracks;
+//    t5.tempo = 240;
+//    t5.nrOfSeqs = 32;
+//    t5.instructions = "sounds/organic2.wav";
+//    int points5[10] = {2,10, 10,18, 18,21, 21,26, 26,32};
+//    t5.points = points5;
+//    t5.nrOfPoints = sizeof(points5) / sizeof(int);
+//    t5.forceStopSound = 0;
+//    tracks[nrOfTracks] = t5;
+//    nrOfTracks++;
+//
+//    track t6;
+//    t6.index = nrOfTracks;
+//    t6.tempo = 240;
+//    t6.nrOfSeqs = 32;
+//    t6.instructions = "sounds/organic1.wav";
+//    int points6[16] = {1,7, 7,9, 9,15, 15,17, 17,23, 23,25, 25,31, 31,32};
+//    t6.points = points6;
+//    t6.nrOfPoints = sizeof(points6) / sizeof(int);
+//    t6.forceStopSound = 1;
+//    tracks[nrOfTracks] = t6;
+//    nrOfTracks++;
+//
+//    track t7;
+//    t7.index = nrOfTracks;
+//    t7.tempo = 240;
+//    t7.nrOfSeqs = 32;
+//    t7.instructions = "sounds/tom.wav";
+//    int points7[12] = {1,3, 3,6, 6,17, 17,19, 19,22, 22,32};
+//    t7.points = points7;
+//    t7.nrOfPoints = sizeof(points7) / sizeof(int);
+//    t7.forceStopSound = 1;
+//    tracks[nrOfTracks] = t7;
+//    nrOfTracks++;
+//
+//    track t8;
+//    t8.index = nrOfTracks;
+//    t8.tempo = 240;
+//    t8.nrOfSeqs = 32;
+//    t8.instructions = "sounds/kick.wav";
+//    int points8[16] = {0,4, 4,8, 8,12, 12,16, 16,20, 20,24, 24,28, 28,32};
+//    t8.points = points8;
+//    t8.nrOfPoints = sizeof(points8) / sizeof(int);
+//    t8.forceStopSound = 1;
+//    tracks[nrOfTracks] = t8;
+//    nrOfTracks++;
 
     /**
      *
@@ -514,9 +531,9 @@ void init() {
 
     dataBuffer.dataLength = BUFF_LEN;
     dataBuffer.left_phase = 0;
+    dataBuffer.right_phase = 0;
     dataBuffer.nrOfChannels = 2;
     dataBuffer.nrOfFrames = BUFF_LEN / 2;
-    dataBuffer.right_phase = 0;
     dataBuffer.samplingRate = 44100;
     dataBuffer.data = (float *) malloc(BUFF_LEN * sizeof(float));
 
@@ -641,13 +658,10 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
     (void) statusFlags;
     (void) inputBuffer;
 
-    for( i=0; i<framesPerBuffer; i++ )
-    {
-    	int cIndex = i * data->nrOfChannels;
+    int dataLen = framesPerBuffer * data->nrOfChannels;
 
-    	for (int c = 0; c < data->nrOfChannels; c++) {
-    		*out++ = data->data[cIndex + c];
-    	}
+    for( i=0; i<dataLen; i++ ) {
+    	*out++ = data->data[i];
     }
 
     return paContinue;
@@ -698,58 +712,50 @@ void createSound(sndData * data) {
 void soundGenFunction(sndData * data, track * cTrack) {
 
     int tempo = cTrack->tempo;
-    int nrOfSeqs = cTrack->nrOfSeqs;
-    int samplingRate = 44100;
+    int totalNrOfSeqs = cTrack->totalNrOfSeqs;
+    int samplingRate = 44104; // TODO ??? framesPerSecond must be multiple of channel nr + what happens if inputdata.dataLength is even/ not multiple of nr channels
     int framesPerSeq = (60.0 / tempo) * samplingRate;
-    int totalFrames = nrOfSeqs * framesPerSeq;
-
+    int totalFrames = totalNrOfSeqs * framesPerSeq;
     int repeat = totalFrames;
-
-//    printf("\nt %d %d %l", (*cTrack).index, cTrack->nrOfPoints, index);
-
     int currentSeq = -1;
-    int nrOfPoints = cTrack->nrOfPoints;
 
-    sndData inputData = readFile(cTrack->instructions);
+    sndData inputData = readFile("sounds/hat.wav");
 
-    for (int i = 0; i < data->dataLength; i += data->nrOfChannels) {
-        for (int ch = 0; ch < data->nrOfChannels; ch++) {
-            unsigned long cIndex = (index + i + ch) % repeat;
+	for (int i = 0; i < data->dataLength; i += 1) {
 
-            for (int p = 0; p < nrOfPoints; p += 2) {
-                if (cIndex >= (cTrack->points[p] * framesPerSeq) && cIndex <= (cTrack->points[p + 1] * framesPerSeq)) {
-                    currentSeq = p;
-                    break;
-                } else {
-                    currentSeq = -1;
-                }
-            }
+		int ch = i % data->nrOfChannels;
 
-            if (currentSeq > -1) {
-            	unsigned long goodIndex = (cIndex - (cTrack->points[currentSeq] * framesPerSeq));
+		unsigned long trackIndex = (index + i) % repeat;
 
-                float val = 0.0;
+		currentSeq = (int)trackIndex / framesPerSeq;
 
-                if (cTrack->forceStopSound == 0) {
-                    val = inputData.data[goodIndex % inputData.dataLength];
-                } else if (goodIndex <= inputData.dataLength) {
-                    val = inputData.data[goodIndex];
-                }
+		int foundSeq = 0;
 
-//                if (trackIndex % 2 == 0 && ch % 2 == 0) {
-//                	val = 0.0;
-//                } else if (trackIndex % 2 == 1 && ch % 2 == 1){
-//                	val = 0.0;
-//                }
+		for (int var = 0; var < cTrack->nrOfSeqs; ++var) {
+			if (currentSeq >= cTrack->sequences[var].start && currentSeq < cTrack->sequences[var].stop) {
+				foundSeq = 1;
 
-                data->data[i + ch] = val;
-            } else {
-                data->data[i + ch] = 0.0;
-            }
+				unsigned long goodIndex = (trackIndex - (cTrack->sequences[var].start * framesPerSeq));
 
-        }
+				float val = 0.0;
+
+				if (goodIndex < inputData.dataLength) {
+					val = inputData.data[goodIndex];
+				}
+
+				data->data[i] = val;
+
+				break;
+			}
+		}
+
+		if (foundSeq == 0) {
+			data->data[i] = 0.0;
+		}
+
     }
 
-    free(inputData.data);
+	free(inputData.data);
+
 
 }

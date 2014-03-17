@@ -1,7 +1,0 @@
-Compile:
-
-gcc -lfluidsynth -o test fluid-synth.c
-
-Run:
-
-fluidsynth -a alsa -ni soundFont.sf2 midiFile.mid

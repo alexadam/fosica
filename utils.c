@@ -95,6 +95,6 @@ char * substring(const char * str, size_t begin, size_t len) {
     return 0;
 
   result[slen] = '\0';
-  return (char *) memcpy (result, str, slen);
-
+  memcpy (result, str + begin, slen);
+  return result;
 }

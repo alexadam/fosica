@@ -97,13 +97,10 @@ int main(int argc, char **argv) {
 					char * to = (char * ) malloc(i - lastPosition);
 					to = substring(string, lastPosition, ((i == (bufLen - 1)) ? i - lastPosition + 1 : i - lastPosition));
 
-					printf("%s\n", to);
-
 					if (strstr(to, "@track")) {
 						lastEvent = trackHeader;
 						printf("NEW Track \n");
-					} else if (lastEvent == trackHeader
-							|| lastEvent == eventInstr) {
+					} else if (lastEvent == trackHeader	|| lastEvent == eventInstr) {
 						lastEvent = eventStart;
 						long found = strtol(&string[lastPosition], NULL, 0);
 						printf("AM gasit %d\n", found);
@@ -117,8 +114,7 @@ int main(int argc, char **argv) {
 					}
 
 					free(to);
-					i++;
-					lastPosition = i;
+					lastPosition = i+1;
 				}
 			}
 

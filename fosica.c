@@ -83,7 +83,7 @@ typedef struct {
 typedef struct
 {
     sndData snd;
-    int id;
+    char * name;
 }
 cachedSnd;
 
@@ -398,7 +398,8 @@ sndData dataBuffer;
 int BUFF_LEN = 4410; //FIXME
 track * tracks;
 int nrOfTracks = 0;
-
+cachedSnd * cachedSnds;
+int nrOfCachedSnds = 0;
 
 int main() {
     init();
@@ -420,13 +421,8 @@ pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void init() {
 
-    /**
-     *
-     * Create Tracks
-     *
-     */
-
-
+	cachedSnds = (cachedSnd *) malloc(10 * sizeof(cachedSnd));
+	nrOfCachedSnds = 0;
 
     /**
      *
@@ -578,7 +574,7 @@ void createTracks() {
 
 	for (int i = 0; i < nrOfTracks; ++i) {
 		if (tracks[i].sequences) {
-			free(tracks[i].sequences);
+//			free(tracks[i].sequences);
 		}
 	}
 
@@ -624,7 +620,7 @@ void createTracks() {
 				    track t1;
 				    t1.index = nrOfTracks;
 				    t1.tempo = 240;
-				    t1.nrOfSeqs = 5;
+				    t1.nrOfSeqs = 10;
 				    t1.sequences = (sequence *)malloc(t1.nrOfSeqs * sizeof(sequence));
 				    t1.totalNrOfSeqs = 32;
 				    t1.forceStopSound = 1;
@@ -649,14 +645,14 @@ void createTracks() {
 				} else if (lastEvent == eventStop) {
 					lastEvent = eventInstr;
 
-					memcpy (lastTrack->sequences[lastSequenceIndex].instructions, to, strlen(to));
+					lastTrack->sequences[lastSequenceIndex].instructions = (char *) malloc(1 + strlen(to) * sizeof(char));
+					strcpy (lastTrack->sequences[lastSequenceIndex].instructions, to);
 
 					lastSequenceIndex++;
 				}
 
 				free(to);
-				i++;
-				lastPosition = i;
+				lastPosition = i+1;
 			}
 		}
 
@@ -812,6 +808,25 @@ void createSound(sndData * data) {
 
 }
 
+cachedSnd * getCachedSnd(char * name) {
+	cachedSnd * result = NULL;
+
+	for (int i2 = 0; i2 < nrOfCachedSnds; ++i2) {
+		if (strcmp(cachedSnds[i2].name, name) == 0) {
+			return &cachedSnds[i2];
+		}
+	}
+
+	cachedSnd cs;
+	printf("name %s\n", name);
+	cs.name = (char *) malloc(1 + sizeof(name));
+	strcpy(cs.name, name);
+	cs.snd = readFile(name);
+	cachedSnds[nrOfCachedSnds] = cs;
+	nrOfCachedSnds++;
+	return &cachedSnds[nrOfCachedSnds - 1];
+}
+
 void soundGenFunction(sndData * data, track * cTrack) {
 
     int tempo = cTrack->tempo;
@@ -822,7 +837,7 @@ void soundGenFunction(sndData * data, track * cTrack) {
     int repeat = totalFrames;
     int currentSeq = -1;
 
-    sndData inputData = readFile("sounds/hat.wav");
+    int foundCachedSound = 0;
 
 	for (int i = 0; i < data->dataLength; i += 1) {
 
@@ -842,6 +857,13 @@ void soundGenFunction(sndData * data, track * cTrack) {
 
 				float val = 0.0;
 
+				cachedSnd * cs = getCachedSnd(cTrack->sequences[var].instructions);
+				if (cs == NULL) {
+					continue;
+				}
+
+				sndData inputData = cs->snd;
+
 				if (goodIndex < inputData.dataLength) {
 					val = inputData.data[goodIndex];
 				}
@@ -857,8 +879,6 @@ void soundGenFunction(sndData * data, track * cTrack) {
 		}
 
     }
-
-	free(inputData.data);
 
 
 }

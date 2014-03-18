@@ -77,30 +77,53 @@ void varray_insert(varray *array, int index, void *data) {
 
 int main(int argc, char **argv) {
 
-	char * string = readFile("../merge.txt");
-	if (string) {
+	char * string = readFileToBuffer("../merge.txt");
 
-		unsigned long bufLen = strlen(string);
-		unsigned long lastPosition = 0;
+		if (string) {
 
-		for (int i = 0; i < bufLen; ++i) {
+			int trackHeader = 1;
+			int eventStart = 2;
+			int eventStop = 3;
+			int eventInstr = 4;
+			int lastEvent = -1;
 
-			if (string[i] == '\n') {
+			unsigned long bufLen = strlen(string);
+			unsigned long lastPosition = 0;
 
-				char *to = (char*) malloc(i - lastPosition);
-				strncpy(to, string + lastPosition, i);
+			for (int i = 0; i < bufLen; ++i) {
 
-				printf("\nYYYYYYYYY: %s", to);
-//				free(to);
-				i++;
-				lastPosition = i;
+				if (string[i] == '\n' || i == (bufLen - 1)) {
+
+					char * to = (char * ) malloc(i - lastPosition);
+					to = substring(string, lastPosition, ((i == (bufLen - 1)) ? i - lastPosition + 1 : i - lastPosition));
+
+					printf("%s\n", to);
+
+					if (strstr(to, "@track")) {
+						lastEvent = trackHeader;
+						printf("NEW Track \n");
+					} else if (lastEvent == trackHeader
+							|| lastEvent == eventInstr) {
+						lastEvent = eventStart;
+						long found = strtol(&string[lastPosition], NULL, 0);
+						printf("AM gasit %d\n", found);
+					} else if (lastEvent == eventStart) {
+						lastEvent = eventStop;
+						long found = strtol(&string[lastPosition], NULL, 0);
+						printf("AM gasit %d\n", found);
+					} else if (lastEvent == eventStop) {
+						lastEvent = eventInstr;
+						printf("INSTRUCTIUNE %s\n", to);
+					}
+
+					free(to);
+					i++;
+					lastPosition = i;
+				}
 			}
+
+			printf("au fost %d\n", bufLen);
+			free(string);
 		}
-
-		printf("au fost %d\n", bufLen);
-		free(string);
-	}
-
-	return 0;
 
 }

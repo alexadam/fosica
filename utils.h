@@ -8,6 +8,8 @@ char * localconcat(char *s1, char *s2);
 
 char * trimwhitespace(char *str);
 
-char * readFile(char * fileName);
+char * readFileToBuffer(char * fileName);
+
+char * substring(const char * str, size_t begin, size_t len);
 
 #endif /* UTILS_H_ */

@@ -37,7 +37,7 @@ char * trimwhitespace(char *str)
   return str;
 }
 
-char * readFile(char * fileName) {
+char * readFileToBuffer(char * fileName) {
 	char *buffer = NULL;
 	int string_size, read_size;
 	FILE *handler = fopen(fileName, "r");
@@ -67,4 +67,34 @@ char * readFile(char * fileName) {
 	}
 
 	return buffer;
+}
+
+void copy_string(char * target, char * source)
+{
+   while(*source) {
+      *target = *source;
+      source++;
+      target++;
+   }
+   *target = '\0';
+}
+
+char * substring(const char * str, size_t begin, size_t len) {
+  if (str == 0 || strlen(str) == 0 || strlen(str) < begin || strlen(str) < (begin+len)) {
+	  return 0;
+  }
+
+  char *result;
+  size_t slen = strlen (str);
+
+  if (len < slen)
+    slen = len;
+
+  result = (char *) malloc (slen + 1);
+  if (!result)
+    return 0;
+
+  result[slen] = '\0';
+  return (char *) memcpy (result, str, slen);
+
 }

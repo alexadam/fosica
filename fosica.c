@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <portaudio.h>
+#include <string.h>
 #include "utils.h"
 
 //#include "/usr/local/include/portaudio.h"
@@ -99,7 +100,7 @@ sndData resample(sndData * data, int newSamplingRate) {
     float ratio = newSamplingRate / data->samplingRate;
 
     sndData resultData;
-    resultData.data = (float *) malloc(data->dataLength * sizeof(float) * ratio);
+    resultData.data = malloc(data->dataLength * sizeof(float) * ratio);
     resultData.dataLength = (int) data->dataLength * ratio;
     resultData.left_phase = 0;
     resultData.right_phase = 0;
@@ -152,7 +153,7 @@ double apply_gain(float * data, long frames, int channels, double max, double ga
 
 sndData duplicateClean(sndData * data) {
     sndData tmpData;
-    tmpData.data = (float *) malloc(data->dataLength * sizeof(float));
+    tmpData.data = malloc(data->dataLength * sizeof(float));
     tmpData.dataLength = data->dataLength;
     tmpData.left_phase = data->left_phase;
     tmpData.right_phase = data->right_phase;
@@ -170,7 +171,7 @@ sndData changeNrOfChannels(sndData * data, int newNrChannels, long startPoint) {
 
     if (data->nrOfChannels == 2 && newNrChannels == 1) {
 
-        resultData.data = (float *) malloc(data->dataLength / 2 * sizeof(float));
+        resultData.data = malloc((data->dataLength / 2) * sizeof(float));
 
         for (int i = startPoint; i < data->dataLength; i += 2) {
             resultData.data[i / 2] = data->data[i];
@@ -183,7 +184,7 @@ sndData changeNrOfChannels(sndData * data, int newNrChannels, long startPoint) {
         resultData.right_phase = data->right_phase;
         resultData.dataLength = (int) data->dataLength / 2;
     } else if (data->nrOfChannels == 1 && newNrChannels == 2) {
-        resultData.data = (float *) malloc(data->dataLength * 2 * sizeof(float));
+        resultData.data = malloc(data->dataLength * 2 * sizeof(float));
 
         for (int i = startPoint; i < data->dataLength; i++) {
             resultData.data[i * 2] = data->data[i];
@@ -246,7 +247,7 @@ sndData mix(const sndData * data1, const sndData * data2) {
             minData = data1;
         }
 
-        resultData.data = (float *) malloc(maxData->dataLength * sizeof(float));
+        resultData.data = malloc(maxData->dataLength * sizeof(float));
 
         for (int i = 0; i < maxData->dataLength; i++) {
             if (i < minData->dataLength) {
@@ -303,7 +304,7 @@ sndData readFile(char * fileName) {
     sf = sf_open(fileName, SFM_READ, &info);
 
     if (sf == NULL) {
-        printf("Failed to open the file.\n");
+        printf("Failed to open the file. %s\n", fileName);
         exit(-1);
     }
 
@@ -313,7 +314,7 @@ sndData readFile(char * fileName) {
 
     num_items = f * c;
 
-    buf = (float *) malloc(num_items * sizeof(float));
+    buf = malloc(num_items * sizeof(float));
 
     num = sf_read_float(sf, buf, num_items);
 
@@ -347,7 +348,7 @@ void writeDataToFile(sndData * data, char * fileName) {
     sfinfo.samplerate    = data->samplingRate;
     sfinfo.frames        = data->nrOfFrames;
     sfinfo.channels        = data->nrOfChannels;
-    sfinfo.format        = (SF_FORMAT_WAV | SF_FORMAT_PCM_16) ; //65541; //SF_FORMAT_WAV;
+    sfinfo.format        = (SF_FORMAT_WAV | SF_FORMAT_PCM_24) ; //65541; //SF_FORMAT_WAV;
 
     if (! (outfile = sf_open (fileName, SFM_WRITE, &sfinfo)))
         {    printf ("Error : could not open file : %s\n", fileName) ;
@@ -366,7 +367,7 @@ SNDFILE * openFileToWrite(sndData * data, char * fileName) {
     sfinfo.samplerate = data->samplingRate;
     sfinfo.frames = data->nrOfFrames;
     sfinfo.channels = data->nrOfChannels;
-    sfinfo.format = (SF_FORMAT_WAV | SF_FORMAT_PCM_16); //65541; //SF_FORMAT_WAV; //SF_FORMAT_FLOAT SF_FORMAT_PCM_U8  SF_FORMAT_PCM_16  SF_FORMAT_PCM_24  SF_FORMAT_PCM_32  SF_FORMAT_FLOAT  SF_FORMAT_DOUBLE
+    sfinfo.format = (SF_FORMAT_WAV | SF_FORMAT_PCM_24); //65541; //SF_FORMAT_WAV; //SF_FORMAT_FLOAT SF_FORMAT_PCM_U8  SF_FORMAT_PCM_16  SF_FORMAT_PCM_24  SF_FORMAT_PCM_32  SF_FORMAT_FLOAT  SF_FORMAT_DOUBLE
 
     return sf_open(fileName, SFM_WRITE, &sfinfo);
 }
@@ -421,7 +422,7 @@ pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void init() {
 
-	cachedSnds = (cachedSnd *) malloc(10 * sizeof(cachedSnd));
+	cachedSnds = malloc(10 * sizeof(cachedSnd));
 	nrOfCachedSnds = 0;
 
     /**
@@ -436,7 +437,7 @@ void init() {
     dataBuffer.nrOfChannels = 2;
     dataBuffer.nrOfFrames = BUFF_LEN / 2;
     dataBuffer.samplingRate = 44100;
-    dataBuffer.data = (float *) malloc(BUFF_LEN * sizeof(float));
+    dataBuffer.data = malloc(BUFF_LEN * sizeof(float));
 
     silenceGen(dataBuffer.data, BUFF_LEN);
 
@@ -572,16 +573,16 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
 
 void createTracks() {
 
-	for (int i = 0; i < nrOfTracks; ++i) {
-		if (tracks[i].sequences) {
-//			free(tracks[i].sequences);
-		}
-	}
+//	for (int i = 0; i < nrOfTracks; ++i) {
+//		if (tracks[i].sequences) {
+//			free(tracks[i]);
+//		}
+//	}
 
 	free(tracks);
 	nrOfTracks = 0;
 
-	tracks = (track *) malloc(10 * sizeof(track));
+	tracks = malloc(10 * sizeof(track));
 
 	/****
 	 *
@@ -590,7 +591,6 @@ void createTracks() {
 	 *
 	 *
 	 */
-
 
 	char * string = readFileToBuffer("merge.txt");
 
@@ -611,7 +611,7 @@ void createTracks() {
 
 			if (string[i] == '\n' || i == (bufLen - 1)) {
 
-				char * to = (char * ) malloc(i - lastPosition);
+				char * to = malloc((i - lastPosition + 1) * sizeof(char));
 				to = substring(string, lastPosition, ((i == (bufLen - 1)) ? i - lastPosition + 1 : i - lastPosition));
 
 				if (strstr(to, "@track")) {
@@ -620,8 +620,8 @@ void createTracks() {
 				    track t1;
 				    t1.index = nrOfTracks;
 				    t1.tempo = 240;
-				    t1.nrOfSeqs = 10;
-				    t1.sequences = (sequence *)malloc(t1.nrOfSeqs * sizeof(sequence));
+				    t1.nrOfSeqs = 7;
+				    t1.sequences = malloc(t1.nrOfSeqs * sizeof(sequence));
 				    t1.totalNrOfSeqs = 32;
 				    t1.forceStopSound = 1;
 				   	tracks[nrOfTracks] = t1;
@@ -645,7 +645,7 @@ void createTracks() {
 				} else if (lastEvent == eventStop) {
 					lastEvent = eventInstr;
 
-					lastTrack->sequences[lastSequenceIndex].instructions = (char *) malloc(1 + strlen(to) * sizeof(char));
+					lastTrack->sequences[lastSequenceIndex].instructions = malloc((1 + strlen(to)) * sizeof(char));
 					strcpy (lastTrack->sequences[lastSequenceIndex].instructions, to);
 
 					lastSequenceIndex++;
@@ -790,8 +790,8 @@ void * threadContainer(void * arg) {
 
 void createSound(sndData * data) {
 
-    pthread_t threads[nrOfTracks];
-    threadArgContainer tac[nrOfTracks];
+    pthread_t * threads = malloc(nrOfTracks * sizeof(pthread_t));
+    threadArgContainer * tac = malloc(nrOfTracks * sizeof(threadArgContainer));
 
     int retCode = 0;
 
@@ -806,10 +806,11 @@ void createSound(sndData * data) {
         pthread_join(threads[i], NULL);
     }
 
+    free(threads);
+    free(tac);
 }
 
 cachedSnd * getCachedSnd(char * name) {
-	cachedSnd * result = NULL;
 
 	for (int i2 = 0; i2 < nrOfCachedSnds; ++i2) {
 		if (strcmp(cachedSnds[i2].name, name) == 0) {
@@ -818,12 +819,14 @@ cachedSnd * getCachedSnd(char * name) {
 	}
 
 	cachedSnd cs;
-	printf("name %s\n", name);
-	cs.name = (char *) malloc(1 + sizeof(name));
+	cs.name = malloc((1 + strlen(name)) * sizeof(char));
 	strcpy(cs.name, name);
+
 	cs.snd = readFile(name);
+
 	cachedSnds[nrOfCachedSnds] = cs;
 	nrOfCachedSnds++;
+
 	return &cachedSnds[nrOfCachedSnds - 1];
 }
 
@@ -850,6 +853,7 @@ void soundGenFunction(sndData * data, track * cTrack) {
 		int foundSeq = 0;
 
 		for (int var = 0; var < cTrack->nrOfSeqs; ++var) {
+
 			if (currentSeq >= cTrack->sequences[var].start && currentSeq < cTrack->sequences[var].stop) {
 				foundSeq = 1;
 

@@ -7,40 +7,21 @@
 #include <portaudio.h>
 #include <string.h>
 #include <jansson.h>
+
 #include "utils.h"
+#include "effects.h"
 
 //#include "/usr/local/include/portaudio.h"
 //#include "libs/portaudio/include/portaudio.h"
 
 /*
- 	gcc  -std=c99 -o fosica utils.c fosica.c  -lpthread -lm -L/usr/local/lib -lportaudio -lsndfile -lsamplerate -Wl,-rpath -Wl,/usr/local/lib
+ 	gcc  -std=c99 -o fosica utils.c effects.c fosica.c  -lpthread -lm -L/usr/local/lib -lportaudio -lsndfile -lsamplerate -Wl,-rpath -Wl,/usr/local/lib
 
  */
 
 //--------
 // root
 //--------
-
-//--------
-// Effects
-//--------
-void sinGen(float * data, int freq, int samplingRate, long lengthInSamples);
-void silenceGen(float * data, long lengthInSamples);
-
-void sinGen(float * data, int freq, int samplingRate, long lengthInSamples) {
-    if (samplingRate == 0)
-        return;
-
-    for (int i = 0; i< lengthInSamples; i++) {
-        data[i] = sin(2 * 3.1415 * freq * i / samplingRate);
-    }
-}
-
-void silenceGen(float * data, long lengthInSamples) {
-    for (int i = 0; i< lengthInSamples; i++) {
-        data[i] = 0.0;
-    }
-}
 
 //-------
 // sndFile utils
@@ -392,7 +373,7 @@ void closeFile(SNDFILE *outfile) {
 
 
 
-unsigned long index = 0;
+unsigned long globalIndex = 0;
 
 SNDFILE * outputFile;
 char * outputFileName = "out.wav";
@@ -440,7 +421,7 @@ void init() {
     dataBuffer.samplingRate = 44100;
     dataBuffer.data = malloc(BUFF_LEN * sizeof(float));
 
-    silenceGen(dataBuffer.data, BUFF_LEN);
+    silenceGenArray(dataBuffer.data, BUFF_LEN);
 
     /**
      *
@@ -524,7 +505,7 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
      *
      */
 
-    silenceGen(dataBuffer.data, BUFF_LEN);
+	silenceGenArray(dataBuffer.data, BUFF_LEN);
 
     createTracks();
 
@@ -547,7 +528,7 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
      * Increment the index
      *
      */
-    index += BUFF_LEN;
+    globalIndex += BUFF_LEN;
 
     /**
      *
@@ -645,7 +626,7 @@ void createTracks() {
 		t1.nrOfSeqs = 7;
 		t1.sequences = malloc(t1.nrOfSeqs * sizeof(sequence));
 		t1.totalNrOfSeqs = 32;
-		t1.forceStopSound = 1;
+		t1.forceStopSound = 0;
 		tracks[nrOfTracks] = t1;
 		nrOfTracks++;
 
@@ -706,7 +687,72 @@ void createTracks() {
 	}
 
 	/**
-	 *
+	 *char * string = readFileToBuffer("merge.txt");
+
+	if (string) {
+
+		int trackHeader = 1;
+		int eventStart = 2;
+		int eventStop = 3;
+		int eventInstr = 4;
+		int lastEvent = -1;
+
+		size_t bufLen = strlen(string);
+		size_t lastPosition = 0;
+		track * lastTrack;
+		int lastSequenceIndex = 0;
+
+		for (int i = 0; i < bufLen; ++i) {
+
+			if (string[i] == '\n' || i == (bufLen - 1)) {
+
+				char * to = malloc((i - lastPosition + 1) * sizeof(char));
+				to = substring(string, lastPosition, ((i == (bufLen - 1)) ? i - lastPosition + 1 : i - lastPosition));
+
+				if (strstr(to, "@track")) {
+					lastEvent = trackHeader;
+
+				    track t1;
+				    t1.index = nrOfTracks;
+				    t1.tempo = 240;
+				    t1.nrOfSeqs = 7;
+				    t1.sequences = malloc(t1.nrOfSeqs * sizeof(sequence));
+				    t1.totalNrOfSeqs = 32;
+				    t1.forceStopSound = 1;
+				   	jsonTracks[nrOfTracks] = t1;
+				   	nrOfTracks++;
+
+				   	lastTrack = &t1;
+				   	lastSequenceIndex = 0;
+
+				} else if (lastEvent == trackHeader || lastEvent == eventInstr) {
+					lastEvent = eventStart;
+					long found = strtol(&string[lastPosition], NULL, 0);
+
+					lastTrack->sequences[lastSequenceIndex].start = (int)found;
+
+				} else if (lastEvent == eventStart) {
+					lastEvent = eventStop;
+					long found = strtol(&string[lastPosition], NULL, 0);
+
+					lastTrack->sequences[lastSequenceIndex].stop = (int) found;
+
+				} else if (lastEvent == eventStop) {
+					lastEvent = eventInstr;
+
+					lastTrack->sequences[lastSequenceIndex].instructions = malloc((1 + strlen(to)) * sizeof(char));
+					strcpy (lastTrack->sequences[lastSequenceIndex].instructions, to);
+
+					lastSequenceIndex++;
+				}
+
+				free(to);
+				lastPosition = i+1;
+			}
+		}
+
+		free(string);
+	}
 	 *
 	 *
 	 *
@@ -874,6 +920,213 @@ cachedSnd * getCachedSnd(char * name) {
 	return &cachedSnds[nrOfCachedSnds - 1];
 }
 
+char ** split(const char * input, char sep, int * elemCoount) {
+
+	char ** result = NULL;
+	int inputLen = strlen(input);
+	int lastPosition = 0;
+
+	for (int i = 0; i < inputLen; ++i) {
+		if (input[i] == sep) {
+			(*elemCoount)++;
+		}
+	}
+
+	(*elemCoount)++;
+
+	int curElem = 0;
+
+	result = (char ** )malloc((*elemCoount) * sizeof(char *));
+
+	for (int i = 0; i < inputLen; ++i) {
+		if (input[i] == sep || i == inputLen - 1) {
+
+
+			int newLen = ((i == (inputLen - 1)) ? i - lastPosition + 2 : i - lastPosition + 1);
+
+			result[curElem] = malloc(newLen * sizeof(char));
+
+			memcpy (result[curElem] , input + lastPosition, newLen-1);
+			result[curElem][newLen - 1] = '\0';
+
+			lastPosition = i+1;
+			curElem++;
+		}
+	}
+
+	return result;
+}
+
+float getValueFromFile(char * fileName, unsigned long int position) {
+
+	cachedSnd * csnd = getCachedSnd(fileName);
+
+	if (!csnd) {
+		return 0.0;
+	}
+
+	if (position >= csnd->snd.dataLength) {
+		printf("NO SOUND");
+		return 0.0;
+	}
+
+	return csnd->snd.data[position];
+}
+
+float getValueFromFunction(char * functionSignature, unsigned long mainIndex, int tempo, int nrOfSeq, int samplingRate) {
+
+	int lenObj = strlen(functionSignature);
+	int has = 0;
+
+	for (int i = 0; i < lenObj; ++i) {
+		if (functionSignature[i] == ',') {
+			has = 1;
+			break;
+		}
+	}
+
+	if (!has) {
+		return 0.0;
+	}
+
+	int elemCount = 0;
+
+//	char * localCopy = malloc((strlen(functionSignature) + 1) * sizeof(char));
+//	strcpy(localCopy, functionSignature);
+
+
+	char ** tokens = split(functionSignature, ',', &elemCount);
+//	char * token = *tokens;
+
+	if (strcmp(*tokens, "file") == 0) {
+		return getValueFromFile(tokens[1], mainIndex);
+	} else if (strcmp(*tokens, "sin") == 0) {
+		char * freqChar = tokens[1];
+		int freq = string2int(freqChar);
+
+		char * lengthInSamplesChar = tokens[2];
+		int lengthInSamples = string2int(lengthInSamplesChar);
+
+		free(freqChar);
+		free(lengthInSamplesChar);
+		return sinGen(mainIndex, freq, lengthInSamples);
+	}
+
+	for (int i = 0; i < elemCount; ++i) {
+		free(tokens[i]);
+	}
+	free(tokens);
+//	free(token);
+
+//	free(localCopy);
+
+	return 0.0;
+}
+
+float dummyParser(char * input, unsigned long int mainIndex, int tempo, int nrOfSeq, int samplingRate) {
+
+	char * instructions = NULL;
+	instructions = malloc((strlen(input) + 1) * sizeof(char));
+	strcpy(instructions, input);
+
+	char * tmp1 =  ulint2string(mainIndex);
+	char * tmp2 = int2string(tempo);
+
+//	printf("AICI %s %s\n", input, tmp2);
+
+//	instructions = str_replace(instructions, "#globalIndex", tmp1); //TODO unsigned long int
+//	instructions = str_replace(instructions, "#tempo", tmp2);
+
+	free(tmp1);
+	free(tmp2);
+
+	//TODO de-alloc int2string() stuff
+
+	int lenObj = strlen(instructions);
+	int has = 0;
+
+	for (int i = 0; i < lenObj; ++i) {
+		if (instructions[i] == '|') {
+			has = 1;
+			break;
+		}
+	}
+
+	int elemCount = 0;
+	char ** tokens = NULL;
+
+
+
+	if (!has) {
+		tokens = malloc(sizeof(char *));
+		tokens = instructions;
+		elemCount = 1;
+	} else {
+		tokens = split(instructions, '|', &elemCount);
+	}
+
+	if (!tokens) {
+		return 0.0;
+	}
+
+	float * valuesStack = malloc(elemCount * sizeof(float));
+
+	for (int i = 0; i < elemCount; ++i) {
+		char * token = (tokens + i);
+
+		if (strcmp(token, "*") == 0) {
+			valuesStack[i] = valuesStack[i - 2] * valuesStack[i - 1];
+		} else if (strcmp(token, "+") == 0) {
+			valuesStack[i] = valuesStack[i - 2] + valuesStack[i - 1];
+		} else if (strcmp(token, "-") == 0) {
+			valuesStack[i] = valuesStack[i - 2] - valuesStack[i - 1];
+		} else if (strcmp(token, "/") == 0) {
+			if (valuesStack[i - 1] == 0.0) {
+				valuesStack[i] = valuesStack[i - 2];
+			} else {
+				valuesStack[i] = valuesStack[i - 2] / valuesStack[i - 1];
+			}
+		} else {
+			int hasCommas = 0;
+			int elemLen = strlen(token);
+
+			for (int j = 0; j < elemLen; ++j) {
+				if (*(token + j) == ',') {
+					hasCommas = 1;
+					break;
+				}
+			}
+
+			if (!hasCommas) {
+				//is number
+				valuesStack[i] = strtof(*(tokens + i), NULL);
+			} else {
+				//is function
+				char * loc = malloc(sizeof(char) * (strlen(token) + 1 ));
+				strcpy(loc, token);
+				valuesStack[i] = getValueFromFunction(token, mainIndex, tempo, nrOfSeq, samplingRate);
+				free(loc);
+			}
+		}
+
+	}
+
+	float result = valuesStack[elemCount - 1];
+
+	free(valuesStack);
+	free(instructions);
+//	for (int i = 0; i < elemCount; ++i) {
+//		free(tokens[i]);
+//	}
+//	free(tokens);
+
+	return result;
+}
+
+float getValue(char * instructions, unsigned long int mainIndex, int tempo, int nrOfSeq, int samplingRate) {
+	return dummyParser(instructions, mainIndex, tempo, nrOfSeq, samplingRate);
+}
+
 void soundGenFunction(sndData * data, track * cTrack) {
 
     int tempo = cTrack->tempo;
@@ -890,7 +1143,8 @@ void soundGenFunction(sndData * data, track * cTrack) {
 
 		int ch = i % data->nrOfChannels;
 
-		unsigned long trackIndex = (index + i) % repeat;
+		unsigned long int mainIndex = globalIndex + i;
+		unsigned long int trackIndex = mainIndex % repeat;
 
 		currentSeq = (int)trackIndex / framesPerSeq;
 
@@ -901,24 +1155,20 @@ void soundGenFunction(sndData * data, track * cTrack) {
 			if (currentSeq >= cTrack->sequences[var].start && currentSeq < cTrack->sequences[var].stop) {
 				foundSeq = 1;
 
-				unsigned long goodIndex = (trackIndex - (cTrack->sequences[var].start * framesPerSeq));
+				unsigned long sequenceIndex = (trackIndex - (cTrack->sequences[var].start * framesPerSeq));
 
 				float val = 0.0;
 
-				cachedSnd * cs = getCachedSnd(cTrack->sequences[var].instructions);
-				if (cs == NULL) {
-					continue;
-				}
-
-				sndData inputData = cs->snd;
-
-				if (goodIndex < inputData.dataLength) {
-					val = inputData.data[goodIndex];
-				}
+//				if (cTrack->forceStopSound == 0) {
+//					val = inputData.data[trackIndex % inputData.dataLength];
+//				} else if (goodIndex < inputData.dataLength) {
+//					val = getValueFromFile(cTrack->sequences[var].instructions, goodIndex);
+					val = getValue(cTrack->sequences[var].instructions, sequenceIndex, tempo, totalNrOfSeqs, samplingRate);
+//				}
 
 				data->data[i] = val;
 
-				break;
+				break; //TODO do not 'break' but instead mix all val's from each sequence ?
 			}
 		}
 

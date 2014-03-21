@@ -3,13 +3,13 @@
 		{ 
 			"trackName":"t1" , 
 		  	"sequences": [ 
-		  					{"start" : 0, "stop" : 1, "instructions" : "sounds/kick.wav"},
-		  					{"start" : 1, "stop" : 2, "instructions" : "sounds/kick.wav"},
-		  					{"start" : 12, "stop" : 13, "instructions" : "sounds/hat.wav"},
-		  					{"start" : 13, "stop" : 14, "instructions" : "sounds/clap.wav"},
-		  					{"start" : 14, "stop" : 15, "instructions" : "sounds/organic1.wav"},
-		  					{"start" : 22, "stop" : 23, "instructions" : "sounds/hat.wav"},
-		  					{"start" : 23, "stop" : 24, "instructions" : "sounds/hat.wav"} 
+		  					{"start" : 0, "stop" : 1, "instructions" : "file,sounds/kick.wav"},
+		  					{"start" : 1, "stop" : 2, "instructions" : "file,sounds/kick.wav"},
+		  					{"start" : 12, "stop" : 13, "instructions" : "file,sounds/hat.wav"},
+		  					{"start" : 13, "stop" : 14, "instructions" : "file,sounds/clap.wav"},
+		  					{"start" : 14, "stop" : 15, "instructions" : "file,sounds/organic1.wav"},
+		  					{"start" : 22, "stop" : 23, "instructions" : "file,sounds/hat.wav"},
+		  					{"start" : 23, "stop" : 24, "instructions" : "file,sounds/hat.wav"} 
 		  				 ] 
 		  }
 	 ]

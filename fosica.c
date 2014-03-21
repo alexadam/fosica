@@ -1,11 +1,11 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <pthread.h>
 #include <samplerate.h>
 #include <sndfile.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <portaudio.h>
-#include <string.h>
 #include <jansson.h>
 
 #include "utils.h"
@@ -555,12 +555,14 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
 
 void createTracks() {
 
-	//TODO
-//	for (int i = 0; i < nrOfTracks; ++i) {
-//		if (tracks[i].sequences) {
-//			free(tracks[i]);
-//		}
-//	}
+	for (int i = 0; i < nrOfTracks; ++i) {
+		if (tracks[i].sequences) {
+			for (int j = 0; j < tracks[i].nrOfSeqs; ++j) {
+				free(tracks[i].sequences[j].instructions);
+			}
+			free(tracks[i].sequences);
+		}
+	}
 
 	free(tracks);
 	nrOfTracks = 0;
@@ -990,16 +992,12 @@ float getValueFromFunction(char * functionSignature, unsigned long mainIndex, in
 	}
 
 	int elemCount = 0;
-
-//	char * localCopy = malloc((strlen(functionSignature) + 1) * sizeof(char));
-//	strcpy(localCopy, functionSignature);
-
+	float retVal = 0.0;
 
 	char ** tokens = split(functionSignature, ',', &elemCount);
-//	char * token = *tokens;
 
 	if (strcmp(*tokens, "file") == 0) {
-		return getValueFromFile(tokens[1], mainIndex);
+		retVal = getValueFromFile(tokens[1], mainIndex);
 	} else if (strcmp(*tokens, "sin") == 0) {
 		char * freqChar = tokens[1];
 		int freq = string2int(freqChar);
@@ -1009,38 +1007,31 @@ float getValueFromFunction(char * functionSignature, unsigned long mainIndex, in
 
 		free(freqChar);
 		free(lengthInSamplesChar);
-		return sinGen(mainIndex, freq, lengthInSamples);
+		retVal =  sinGen(mainIndex, freq, lengthInSamples);
 	}
 
 	for (int i = 0; i < elemCount; ++i) {
 		free(tokens[i]);
 	}
 	free(tokens);
-//	free(token);
 
-//	free(localCopy);
-
-	return 0.0;
+	return retVal;
 }
 
 float dummyParser(char * input, unsigned long int mainIndex, int tempo, int nrOfSeq, int samplingRate) {
 
 	char * instructions = NULL;
-	instructions = malloc((strlen(input) + 1) * sizeof(char));
-	strcpy(instructions, input);
-
 	char * tmp1 =  ulint2string(mainIndex);
 	char * tmp2 = int2string(tempo);
 
-//	printf("AICI %s %s\n", input, tmp2);
 
-//	instructions = str_replace(instructions, "#globalIndex", tmp1); //TODO unsigned long int
-//	instructions = str_replace(instructions, "#tempo", tmp2);
+	instructions = str_replace(input, "#globalIndex", tmp1);
+	char * oldp = instructions;
+	instructions = str_replace(instructions, "#tempo", tmp2);
 
+	free(oldp);
 	free(tmp1);
 	free(tmp2);
-
-	//TODO de-alloc int2string() stuff
 
 	int lenObj = strlen(instructions);
 	int has = 0;
@@ -1055,10 +1046,7 @@ float dummyParser(char * input, unsigned long int mainIndex, int tempo, int nrOf
 	int elemCount = 0;
 	char ** tokens = NULL;
 
-
-
 	if (!has) {
-		tokens = malloc(sizeof(char *));
 		tokens = instructions;
 		elemCount = 1;
 	} else {
@@ -1102,7 +1090,7 @@ float dummyParser(char * input, unsigned long int mainIndex, int tempo, int nrOf
 				valuesStack[i] = strtof(*(tokens + i), NULL);
 			} else {
 				//is function
-				char * loc = malloc(sizeof(char) * (strlen(token) + 1 ));
+				char * loc = malloc(sizeof(char) * (strlen(token) + 1 )); //TODO
 				strcpy(loc, token);
 				valuesStack[i] = getValueFromFunction(token, mainIndex, tempo, nrOfSeq, samplingRate);
 				free(loc);

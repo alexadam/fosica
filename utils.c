@@ -87,33 +87,46 @@ char * substring(const char * str, size_t begin, size_t len) {
   return result;
 }
 
-char * str_replace( const char *string, const char *substr, const char *replacement ){
-  char *tok = NULL;
-  char *newstr = NULL;
-  char *oldstr = NULL;
-  /* if either substr or replacement is NULL, duplicate string a let caller handle it */
-  if ( substr == NULL || replacement == NULL ) return strdup (string);
-  newstr = strdup (string);
-
-  while ( (tok = strstr ( newstr, substr ))){
-    oldstr = newstr;
-    newstr = malloc ( strlen ( oldstr ) - strlen ( substr ) + strlen ( replacement ) + 1 );
-
-    /*failed to alloc mem, free old string and return NULL */
-    if ( newstr == NULL ){
-      free (oldstr);
-      return NULL;
+char * dupstr(const char *s) {
+    char *const result = malloc(strlen(s) + 1);
+    if (result != NULL) {
+        strcpy(result, s);
     }
+    return result;
+}
 
-    memcpy ( newstr, oldstr, tok - oldstr );
-    memcpy ( newstr + (tok - oldstr), replacement, strlen ( replacement ) );
-    memcpy ( newstr + (tok - oldstr) + strlen( replacement ), tok + strlen ( substr ), strlen ( oldstr ) - strlen ( substr ) - ( tok - oldstr ) );
-    memset ( newstr + strlen ( oldstr ) - strlen ( substr ) + strlen ( replacement ) , 0, 1 );
+char * str_replace(const char *string, const char *substr, 	const char *replacement) {
+	char *tok = NULL;
+	char *newstr = NULL;
+	char *oldstr = NULL;
 
-    free (oldstr);
-  }
+	/* if either substr or replacement is NULL, duplicate string a let caller handle it */
+	if (substr == NULL || replacement == NULL)
+		return dupstr(string);
 
-  return newstr;
+	newstr = dupstr(string);
+
+	while ((tok = strstr(newstr, substr))) {
+		oldstr = newstr;
+		newstr = malloc(strlen(oldstr) - strlen(substr) + strlen(replacement) + 1);
+
+		/*failed to alloc mem, free old string and return NULL */
+		if (newstr == NULL) {
+			free(oldstr);
+			free(tok);
+			return NULL;
+		}
+
+		memcpy(newstr, oldstr, tok - oldstr);
+		memcpy(newstr + (tok - oldstr), replacement, strlen(replacement));
+		memcpy(newstr + (tok - oldstr) + strlen(replacement), tok + strlen(substr), strlen(oldstr) - strlen(substr) - (tok - oldstr));
+		memset(newstr + strlen(oldstr) - strlen(substr) + strlen(replacement), 0, 1);
+
+		free(oldstr);
+		free(tok);
+	}
+
+	return newstr;
 }
 
 char ** str_split(char* a_str, const char a_delim, int * elemCount)

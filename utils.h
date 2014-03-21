@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #ifndef UTILS_H_
@@ -26,5 +27,7 @@ char * ulint2string(unsigned long int input);
 long string2long(char * input);
 
 float string2float(char * input);
+
+char * dupstr(const char *s);
 
 #endif /* UTILS_H_ */

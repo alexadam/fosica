@@ -123,65 +123,47 @@ char * str_replace(const char *string, const char *substr, 	const char *replacem
 		memset(newstr + strlen(oldstr) - strlen(substr) + strlen(replacement), 0, 1);
 
 		free(oldstr);
-		free(tok);
+//		free(tok);
 	}
 
 	return newstr;
 }
 
-char ** str_split(char* a_str, const char a_delim, int * elemCount)
-{
-    char** result    = 0;
-    size_t count     = 0;
-    char* tmp        = a_str;
-    char* last_comma = 0;
-    char delim[2];
-    delim[0] = a_delim;
-    delim[1] = 0;
+char ** split(const char * input, char sep, int * elemCount) {
 
-    /* Count how many elements will be extracted. */
-    while (*tmp)
-    {
-        if (a_delim == *tmp)
-        {
-            count++;
-            (*elemCount)++;
-            last_comma = tmp;
-        }
-        tmp++;
-    }
+	char ** result = NULL;
+	int inputLen = strlen(input);
+	int lastPosition = 0;
 
-    (*elemCount)++;
+	for (int i = 0; i < inputLen; ++i) {
+		if (input[i] == sep) {
+			(*elemCount)++;
+		}
+	}
 
-    /* Add space for trailing token. */
-    count += last_comma < (a_str + strlen(a_str) - 1);
+	(*elemCount)++;
 
-    /* Add space for terminating null string so caller
-       knows where the list of returned strings ends. */
-    count++;
+	int curElem = 0;
 
-    result = malloc(sizeof(char*) * count);
+	result = (char ** )malloc((*elemCount) * sizeof(char *));
 
-    if (result)
-    {
-        size_t idx  = 0;
-        char * at = strdup(a_str);
-        char* token = strtok(at, delim);
-        while (token)
-        {
-            assert(idx < count);
-            *(result + idx++) = strdup(token);
-            printf("AICI 3\n");
-            token = strtok(0, delim);
-        }
-        assert(idx == count - 1); //TODO cannot handle empty list
-        *(result + idx) = 0;
+	for (int i = 0; i < inputLen; ++i) {
+		if (input[i] == sep || i == inputLen - 1) {
 
-        free(at);
-//        free(token);
-    }
 
-    return result;
+			int newLen = ((i == (inputLen - 1)) ? i - lastPosition + 2 : i - lastPosition + 1);
+
+			result[curElem] = malloc(newLen * sizeof(char));
+
+			memcpy (result[curElem] , input + lastPosition, newLen-1);
+			result[curElem][newLen - 1] = '\0';
+
+			lastPosition = i+1;
+			curElem++;
+		}
+	}
+
+	return result;
 }
 
 int string2int(char * input) {
@@ -197,6 +179,12 @@ char * int2string(int input) {
 char * ulint2string(unsigned long int input) {
 	char * intBuf = malloc(64 * sizeof(char));
 	snprintf (intBuf, 64, "%ul", input);
+	return intBuf;
+}
+
+char * float2string(float input) {
+	char * intBuf = malloc(32 * sizeof(char));
+	snprintf (intBuf, 32, "%f", input);
 	return intBuf;
 }
 

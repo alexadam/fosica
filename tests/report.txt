@@ -1,0 +1,126 @@
+==4658== Memcheck, a memory error detector
+==4658== Copyright (C) 2002-2012, and GNU GPL'd, by Julian Seward et al.
+==4658== Using Valgrind-3.8.1 and LibVEX; rerun with -h for copyright info
+==4658== Command: ./stacklan
+==4658== Parent PID: 3898
+==4658== 
+--4658-- 
+--4658-- Valgrind options:
+--4658--    --suppressions=/usr/lib/valgrind/debian-libc6-dbg.supp
+--4658--    --tool=memcheck
+--4658--    --leak-check=full
+--4658--    --show-reachable=yes
+--4658--    --num-callers=20
+--4658--    --track-fds=yes
+--4658--    --track-origins=yes
+--4658--    -v
+--4658--    --read-var-info=yes
+--4658--    --log-file=report.txt
+--4658-- Contents of /proc/version:
+--4658--   Linux version 3.11.0-12-generic (buildd@allspice) (gcc version 4.8.1 (Ubuntu/Linaro 4.8.1-10ubuntu7) ) #19-Ubuntu SMP Wed Oct 9 16:20:46 UTC 2013
+--4658-- Arch and hwcaps: AMD64, amd64-sse3-cx16-avx
+--4658-- Page sizes: currently 4096, max supported 4096
+--4658-- Valgrind library directory: /usr/lib/valgrind
+--4658-- Reading syms from /home/alex/stuff/projects/fosica_p/fosica/tests/stacklan
+--4658-- Reading syms from /lib/x86_64-linux-gnu/ld-2.17.so
+--4658--   Considering /lib/x86_64-linux-gnu/ld-2.17.so ..
+--4658--   .. CRC mismatch (computed 51e60a7a wanted 521e3c74)
+--4658--   Considering /usr/lib/debug/lib/x86_64-linux-gnu/ld-2.17.so ..
+--4658--   .. CRC is valid
+--4658--   Considering /usr/lib/debug/lib/x86_64-linux-gnu/ld-2.17.so ..
+--4658--   .. CRC is valid
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- warning: addVar: unknown size (loadcmds)
+--4658-- Reading syms from /usr/lib/valgrind/memcheck-amd64-linux
+--4658--   Considering /usr/lib/valgrind/memcheck-amd64-linux ..
+--4658--   .. CRC mismatch (computed c436d3d9 wanted 99aa3883)
+--4658--    object doesn't have a symbol table
+--4658--    object doesn't have a dynamic symbol table
+--4658-- Scheduler: using generic scheduler lock implementation.
+--4658-- Reading suppressions file: /usr/lib/valgrind/debian-libc6-dbg.supp
+--4658-- Reading suppressions file: /usr/lib/valgrind/default.supp
+==4658== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-4658-by-alex-on-???
+==4658== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-4658-by-alex-on-???
+==4658== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-4658-by-alex-on-???
+==4658== 
+==4658== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==4658== don't want to do, unless you know exactly what you're doing,
+==4658== or are doing some strange experiment):
+==4658==   /usr/lib/valgrind/../../bin/vgdb --pid=4658 ...command...
+==4658== 
+==4658== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==4658==   /path/to/gdb ./stacklan
+==4658== and then give GDB the following command
+==4658==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=4658
+==4658== --pid is optional if only one valgrind process is running
+==4658== 
+--4658-- REDIR: 0x4018f40 (strlen) redirected to 0x3806e491 (???)
+--4658-- Reading syms from /usr/lib/valgrind/vgpreload_core-amd64-linux.so
+--4658--   Considering /usr/lib/valgrind/vgpreload_core-amd64-linux.so ..
+--4658--   .. CRC mismatch (computed 826470ab wanted a8b7e9f3)
+--4658--    object doesn't have a symbol table
+--4658-- Reading syms from /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so
+--4658--   Considering /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so ..
+--4658--   .. CRC mismatch (computed d4fd7975 wanted b90a895a)
+--4658--    object doesn't have a symbol table
+--4658-- REDIR: 0x4018db0 (index) redirected to 0x4c2d480 (index)
+--4658-- REDIR: 0x4018e30 (strcmp) redirected to 0x4c2e560 (strcmp)
+--4658-- Reading syms from /lib/x86_64-linux-gnu/libc-2.17.so
+--4658--   Considering /lib/x86_64-linux-gnu/libc-2.17.so ..
+--4658--   .. CRC mismatch (computed 2c8ee98b wanted da4a7364)
+--4658--   Considering /usr/lib/debug/lib/x86_64-linux-gnu/libc-2.17.so ..
+--4658--   .. CRC is valid
+--4658--   Considering /usr/lib/debug/lib/x86_64-linux-gnu/libc-2.17.so ..
+--4658--   .. CRC is valid
+--4658-- warning: addVar: unknown size (to_buf)
+--4658-- REDIR: 0x4ec1980 (strcasecmp) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4ebdd10 (strnlen) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4ec3c50 (strncasecmp) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4ec0790 (memset) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4ec0740 (memcpy@GLIBC_2.2.5) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4ebf700 (__GI_strrchr) redirected to 0x4c2d2a0 (__GI_strrchr)
+--4658-- REDIR: 0x4ebdbe0 (strlen) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4f9e0e0 (__strlen_sse2_pminub) redirected to 0x4c2d810 (strlen)
+--4658-- REDIR: 0x4eb7470 (malloc) redirected to 0x4c2a270 (malloc)
+--4658-- REDIR: 0x4ec6330 (memcpy@@GLIBC_2.14) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4f834a0 (__memcpy_ssse3_back) redirected to 0x4c2e8b0 (memcpy@@GLIBC_2.14)
+--4658-- REDIR: 0x4ebdc30 (__GI_strlen) redirected to 0x4c2d830 (__GI_strlen)
+--4658-- REDIR: 0x4eb7900 (free) redirected to 0x4c2b5a0 (free)
+--4658-- REDIR: 0x4ebc0f0 (strcmp) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4f6d5b0 (__strcmp_sse42) redirected to 0x4c2e4c0 (strcmp)
+--4658-- REDIR: 0x4ebd580 (strcpy) redirected to 0x4a25720 (_vgnU_ifunc_wrapper)
+--4658-- REDIR: 0x4ecc2a0 (__strcpy_sse2_unaligned) redirected to 0x4c2d850 (strcpy)
+--4658-- REDIR: 0x4ec7b20 (strchrnul) redirected to 0x4c300f0 (strchrnul)
+==4658== 
+==4658== FILE DESCRIPTORS: 4 open at exit.
+==4658== Open file descriptor 3: /home/alex/stuff/projects/fosica_p/fosica/tests/report.txt
+==4658==    <inherited from parent>
+==4658== 
+==4658== Open file descriptor 2: /dev/pts/2
+==4658==    <inherited from parent>
+==4658== 
+==4658== Open file descriptor 1: /dev/pts/2
+==4658==    <inherited from parent>
+==4658== 
+==4658== Open file descriptor 0: /dev/pts/2
+==4658==    <inherited from parent>
+==4658== 
+==4658== 
+==4658== HEAP SUMMARY:
+==4658==     in use at exit: 0 bytes in 0 blocks
+==4658==   total heap usage: 43 allocs, 43 frees, 25,022 bytes allocated
+==4658== 
+==4658== All heap blocks were freed -- no leaks are possible
+==4658== 
+==4658== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+--4658-- 
+--4658-- used_suppression:      2 dl-hack3-cond-1
+==4658== 
+==4658== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)

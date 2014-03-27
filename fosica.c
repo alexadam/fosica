@@ -42,7 +42,7 @@ sndData;
 typedef struct
 {
     char * instructions;
-    int start;
+    int start; //TODO long int
     int stop;
 }
 sequence;
@@ -381,6 +381,7 @@ sndData dataBuffer;
 int BUFF_LEN = 4410; //FIXME
 track * tracks;
 int nrOfTracks = 0;
+
 cachedSnd * cachedSnds;
 int nrOfCachedSnds = 0;
 
@@ -555,19 +556,115 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
 
 void createTracks() {
 
-	for (int i = 0; i < nrOfTracks; ++i) {
-		if (tracks[i].sequences) {
-			for (int j = 0; j < tracks[i].nrOfSeqs; ++j) {
-				free(tracks[i].sequences[j].instructions);
+	if (nrOfTracks > 0) {
+		for (int i = 0; i < nrOfTracks; ++i) {
+			if (tracks[i].sequences) {
+				for (int j = 0; j < tracks[i].nrOfSeqs; ++j) {
+					free(tracks[i].sequences[j].instructions);
+				}
+				free(tracks[i].sequences);
 			}
-			free(tracks[i].sequences);
 		}
+
+		free(tracks);
 	}
 
-	free(tracks);
 	nrOfTracks = 0;
 
-	tracks = malloc(10 * sizeof(track));
+
+	/**
+
+	<nr Of Tracks>
+	track
+	<tempo>
+	<force stop sound>
+	<total sequences>
+	<nr of sequence>
+	<sequence start>
+	<sequence stop>
+	<sequence instruction>
+	<sequence start>
+	<sequence stop>
+	<sequence instruction>
+	.
+	.
+	.
+	.
+
+
+	 */
+
+	char * string = readFileToBuffer("merge.txt");
+
+	if (string) {
+
+		int trackHeader = 1;
+		int eventStart = 2;
+		int eventStop = 3;
+		int eventInstr = 4;
+		int lastEvent = -1;
+
+		track * lastTrack;
+		int nrOfLines = 0;
+		int cTrackIndex = 0;
+		int cSequenceIndex = 0;
+
+		char ** parts = split(string, '\n', &nrOfLines);
+
+		for (int i = 0; i < nrOfLines; ++i) {
+
+			char * cLine = parts[i];
+
+			if (i == 0) {
+				nrOfTracks = string2int(cLine);
+				tracks = malloc(nrOfTracks * sizeof(track));
+			} else if (strcmp(cLine, "track") == 0) {
+				lastEvent = trackHeader;
+
+				int tempo = string2int(parts[i+1]);
+				int forceStopSound = string2int(parts[i+2]);
+				int totalSeqs = string2int(parts[i+3]);
+				int currentSeqs = string2int(parts[i+4]);
+
+				i = i+4;
+
+				track t1;
+				t1.index = cTrackIndex;
+				t1.tempo = tempo;
+				t1.forceStopSound = forceStopSound;
+				t1.totalNrOfSeqs = totalSeqs;
+				t1.nrOfSeqs = currentSeqs;
+				t1.sequences = malloc(t1.nrOfSeqs * sizeof(sequence));
+				tracks[cTrackIndex] = t1;
+				cTrackIndex++;
+
+				lastTrack = &t1;
+				cSequenceIndex = 0;
+
+			} else if (lastEvent == trackHeader || lastEvent == eventInstr) {
+				lastEvent = eventStart;
+				lastTrack->sequences[cSequenceIndex].start = string2int(cLine);
+
+			} else if (lastEvent == eventStart) {
+				lastEvent = eventStop;
+				lastTrack->sequences[cSequenceIndex].stop = string2int(cLine);
+
+			} else if (lastEvent == eventStop) {
+				lastEvent = eventInstr;
+
+				lastTrack->sequences[cSequenceIndex].instructions = malloc((1 + strlen(cLine)) * sizeof(char));
+				strcpy (lastTrack->sequences[cSequenceIndex].instructions, cLine);
+
+				cSequenceIndex++;
+			}
+
+			free(cLine);
+		}
+
+		free(string);
+		free(parts);
+	}
+
 
 	/****
 	 *
@@ -577,116 +674,116 @@ void createTracks() {
 	 *
 	 */
 
-	track * lastTrack;
-	int lastSequenceIndex = 0;
-
-	char * text = readFileToBuffer("merge.json");
-
-	if (!text) {
-		return;
-	}
-
-	json_t *root;
-	json_error_t error;
-
-	root = json_loads(text, 0, &error);
-	free(text);
-
-	if(!root) {
-		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
-		return;
-	}
-
-	json_t * jsonTracks = json_object_get(root, "tracks");
-
-	if(!json_is_array(jsonTracks)) {
-		fprintf(stderr, "error: root is not an array\n");
-		json_decref(root);
-		return;
-	}
-
-	for(int i = 0; i < json_array_size(jsonTracks); i++) {
-		json_t * jsonTrack = json_array_get(jsonTracks, i);
-		if (!json_is_object(jsonTrack)) {
-			fprintf(stderr, "error: track %d is not an object\n", i + 1);
-			json_decref(root);
-			continue;
-		}
-
-		json_t * trackName = json_object_get(jsonTrack, "trackName");
-		if (!json_is_string(trackName)) {
-			fprintf(stderr, "error: trackName %d: is not a string\n", i + 1);
-			json_decref(root);
-			continue;
-		}
-
-		char * trackNameText = json_string_value(trackName);
-
-		track t1;
-		t1.index = nrOfTracks;
-		t1.tempo = 240;
-		t1.nrOfSeqs = 7;
-		t1.sequences = malloc(t1.nrOfSeqs * sizeof(sequence));
-		t1.totalNrOfSeqs = 32;
-		t1.forceStopSound = 0;
-		tracks[nrOfTracks] = t1;
-		nrOfTracks++;
-
-		lastTrack = &t1;
-		lastSequenceIndex = 0;
-
-		json_t * jsonSequences = json_object_get(jsonTrack, "sequences");
-		if (!json_is_array(jsonSequences)) {
-			fprintf(stderr, "error: commit %d: sequences is not an array\n", i + 1);
-			json_decref(root);
-			continue;
-		}
-
-		for (int j = 0; j < json_array_size(jsonSequences); j++) {
-			json_t * jsonSequence = json_array_get(jsonSequences, j);
-
-			if (!json_is_object(jsonSequence)) {
-				fprintf(stderr, "error: sequence data %d is not an object\n", j + 1);
-				json_decref(root);
-				continue;
-			}
-
-			json_t * seqStart = json_object_get(jsonSequence, "start");
-			if (!json_is_integer(seqStart)) {
-				fprintf(stderr, "error: commit %d: seqStart is not a int\n", j + 1);
-				json_decref(root);
-				continue;
-			}
-
-			int seqStartInt = json_integer_value(seqStart);
-			lastTrack->sequences[lastSequenceIndex].start = seqStartInt;
-
-			json_t * seqStop = json_object_get(jsonSequence, "stop");
-			if (!json_is_integer(seqStop)) {
-				fprintf(stderr, "error: commit %d: seqStop is not a int\n", j + 1);
-				json_decref(root);
-				continue;
-			}
-
-			int seqStopInt = json_integer_value(seqStop);
-			lastTrack->sequences[lastSequenceIndex].stop = seqStopInt;
-
-			json_t * seqInstr = json_object_get(jsonSequence, "instructions");
-			if (!json_is_string(seqInstr)) {
-				fprintf(stderr, "error: commit %d: seqInstr is not a string\n", j + 1);
-				json_decref(root);
-				continue;
-			}
-
-			char * seqInstrText = json_string_value(seqInstr);
-
-			lastTrack->sequences[lastSequenceIndex].instructions = malloc((1 + strlen(seqInstrText)) * sizeof(char));
-			strcpy (lastTrack->sequences[lastSequenceIndex].instructions, seqInstrText);
-
-			lastSequenceIndex++;
-		}
-
-	}
+//	track * lastTrack;
+//	int lastSequenceIndex = 0;
+//
+//	char * text = readFileToBuffer("merge.json");
+//
+//	if (!text) {
+//		return;
+//	}
+//
+//	json_t *root;
+//	json_error_t error;
+//
+//	root = json_loads(text, 0, &error);
+//	free(text);
+//
+//	if(!root) {
+//		fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+//		return;
+//	}
+//
+//	json_t * jsonTracks = json_object_get(root, "tracks");
+//
+//	if(!json_is_array(jsonTracks)) {
+//		fprintf(stderr, "error: root is not an array\n");
+//		json_decref(root);
+//		return;
+//	}
+//
+//	for(int i = 0; i < json_array_size(jsonTracks); i++) {
+//		json_t * jsonTrack = json_array_get(jsonTracks, i);
+//		if (!json_is_object(jsonTrack)) {
+//			fprintf(stderr, "error: track %d is not an object\n", i + 1);
+//			json_decref(root);
+//			continue;
+//		}
+//
+//		json_t * trackName = json_object_get(jsonTrack, "trackName");
+//		if (!json_is_string(trackName)) {
+//			fprintf(stderr, "error: trackName %d: is not a string\n", i + 1);
+//			json_decref(root);
+//			continue;
+//		}
+//
+//		char * trackNameText = json_string_value(trackName);
+//
+//		track t1;
+//		t1.index = nrOfTracks;
+//		t1.tempo = 240;
+//		t1.nrOfSeqs = 7;
+//		t1.sequences = malloc(t1.nrOfSeqs * sizeof(sequence));
+//		t1.totalNrOfSeqs = 32;
+//		t1.forceStopSound = 0;
+//		tracks[nrOfTracks] = t1;
+//		nrOfTracks++;
+//
+//		lastTrack = &t1;
+//		lastSequenceIndex = 0;
+//
+//		json_t * jsonSequences = json_object_get(jsonTrack, "sequences");
+//		if (!json_is_array(jsonSequences)) {
+//			fprintf(stderr, "error: commit %d: sequences is not an array\n", i + 1);
+//			json_decref(root);
+//			continue;
+//		}
+//
+//		for (int j = 0; j < json_array_size(jsonSequences); j++) {
+//			json_t * jsonSequence = json_array_get(jsonSequences, j);
+//
+//			if (!json_is_object(jsonSequence)) {
+//				fprintf(stderr, "error: sequence data %d is not an object\n", j + 1);
+//				json_decref(root);
+//				continue;
+//			}
+//
+//			json_t * seqStart = json_object_get(jsonSequence, "start");
+//			if (!json_is_integer(seqStart)) {
+//				fprintf(stderr, "error: commit %d: seqStart is not a int\n", j + 1);
+//				json_decref(root);
+//				continue;
+//			}
+//
+//			int seqStartInt = json_integer_value(seqStart);
+//			lastTrack->sequences[lastSequenceIndex].start = seqStartInt;
+//
+//			json_t * seqStop = json_object_get(jsonSequence, "stop");
+//			if (!json_is_integer(seqStop)) {
+//				fprintf(stderr, "error: commit %d: seqStop is not a int\n", j + 1);
+//				json_decref(root);
+//				continue;
+//			}
+//
+//			int seqStopInt = json_integer_value(seqStop);
+//			lastTrack->sequences[lastSequenceIndex].stop = seqStopInt;
+//
+//			json_t * seqInstr = json_object_get(jsonSequence, "instructions");
+//			if (!json_is_string(seqInstr)) {
+//				fprintf(stderr, "error: commit %d: seqInstr is not a string\n", j + 1);
+//				json_decref(root);
+//				continue;
+//			}
+//
+//			char * seqInstrText = json_string_value(seqInstr);
+//
+//			lastTrack->sequences[lastSequenceIndex].instructions = malloc((1 + strlen(seqInstrText)) * sizeof(char));
+//			strcpy (lastTrack->sequences[lastSequenceIndex].instructions, seqInstrText);
+//
+//			lastSequenceIndex++;
+//		}
+//
+//	}
 
 	/**
 	 *char * string = readFileToBuffer("merge.txt");
@@ -920,43 +1017,6 @@ cachedSnd * getCachedSnd(char * name) {
 	nrOfCachedSnds++;
 
 	return &cachedSnds[nrOfCachedSnds - 1];
-}
-
-char ** split(const char * input, char sep, int * elemCoount) {
-
-	char ** result = NULL;
-	int inputLen = strlen(input);
-	int lastPosition = 0;
-
-	for (int i = 0; i < inputLen; ++i) {
-		if (input[i] == sep) {
-			(*elemCoount)++;
-		}
-	}
-
-	(*elemCoount)++;
-
-	int curElem = 0;
-
-	result = (char ** )malloc((*elemCoount) * sizeof(char *));
-
-	for (int i = 0; i < inputLen; ++i) {
-		if (input[i] == sep || i == inputLen - 1) {
-
-
-			int newLen = ((i == (inputLen - 1)) ? i - lastPosition + 2 : i - lastPosition + 1);
-
-			result[curElem] = malloc(newLen * sizeof(char));
-
-			memcpy (result[curElem] , input + lastPosition, newLen-1);
-			result[curElem][newLen - 1] = '\0';
-
-			lastPosition = i+1;
-			curElem++;
-		}
-	}
-
-	return result;
 }
 
 float getValueFromFile(char * fileName, unsigned long int position) {

@@ -4,14 +4,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "../parser.h"
 #include "../utils.h"
+#include "../effects.h"
 
 /*
  *
 
-gcc -g -std=c99 wtack_parser.c ../utils.c -o wtack_parser
+gcc -g -std=c99 wtack_parser.c ../utils.c ../effects.c -lm -o wtack_parser
 
 
  *
@@ -46,7 +48,7 @@ mType ** vars;
 
 int maxVars = 30;
 
-typedef enum {ADD, SUB, MUL, DIV, MOD, EQ, NOT, NOTEQ, GT, GTE, LT, LTE, AND, OR} OPS;
+typedef enum {ADD, SUB, MUL, DIV, MOD, POW, EQ, NOT, NOTEQ, GT, GTE, LT, LTE, AND, OR} OPS;
 
 void initStacks(int capacity) {
 	oStack.data = malloc(capacity * sizeof(mType *));
@@ -98,6 +100,18 @@ mType * deepCopy(mType * source) {
 		res->float_list_val = malloc(res->size * sizeof(float));
 		memcpy(res->float_list_val, source->float_list_val, res->size * sizeof(float));
 	}
+
+	return res;
+}
+
+mType * createListObj(float * input, int size) {
+	mType * res = malloc(sizeof(mType));
+
+	res->type = cFLOAT_LIST;
+	res->size = size;
+	res->float_list_val = malloc(size * sizeof(float));
+
+	memcpy(res->float_list_val, input, size * sizeof(float));
 
 	return res;
 }
@@ -177,18 +191,17 @@ mType * baseOp(OPS op, mType * f1, mType * f2) {
 			res->float_val = f1->float_val / tmp;
 		} else if (op == MOD) {
 			res->float_val = (int)f1->float_val % (int)f2->float_val;
+		} else if (op == POW) {
+			res->float_val =  pow(f1->float_val, f2->float_val);
 		}
 	} else if (f1->type == cFLOAT_LIST && f2->type == cFLOAT_LIST) {
 		res->type = cFLOAT_LIST;
 
-		mType * smallerType = f1->size >= f2->size ? f2 : f1;
-		mType * biggerType = f1->size >= f2->size ? f1 : f2;
+		res->size = f1->size;
+		res->float_list_val = malloc(f1->size * sizeof(float));
 
-		res->size = biggerType->size;
-		res->float_list_val = malloc(biggerType->size * sizeof(float));
-
-		for (int i = 0; i < biggerType->size; ++i) {
-			if (i < smallerType->size) {
+		for (int i = 0; i < f1->size; ++i) {
+			if (i < f2->size) {
 
 				if (op == ADD) {
 					res->float_list_val[i] = f1->float_list_val[i] + f2->float_list_val[i];
@@ -205,9 +218,9 @@ mType * baseOp(OPS op, mType * f1, mType * f2) {
 					res->float_list_val[i] = f1->float_list_val[i] / tmp;
 				} else if (op == MOD) {
 					res->float_list_val[i] = (int)f1->float_list_val[i] % (int)f2->float_list_val[i];
+				} else if (op == POW) {
+					res->float_list_val[i] =  pow(f1->float_list_val[i], f2->float_list_val[i]);
 				}
-			} else {
-				res->float_list_val[i] = biggerType->float_list_val[i];
 			}
 		}
 	} else if (f1->type == cFLOAT_LIST && f2->type == cFLOAT) {
@@ -232,8 +245,9 @@ mType * baseOp(OPS op, mType * f1, mType * f2) {
 				res->float_list_val[i] = f1->float_list_val[i] / tmp;
 			} else if (op == MOD) {
 				res->float_list_val[i] = (int)f1->float_list_val[i] % (int)f2->float_val;
+			} else if (op == POW) {
+				res->float_list_val[i] =  pow(f1->float_list_val[i], f2->float_val);
 			}
-
 		}
 	} else if (f2->type == cFLOAT_LIST && f1->type == cFLOAT) {
 		res->type = cFLOAT_LIST;
@@ -256,6 +270,8 @@ mType * baseOp(OPS op, mType * f1, mType * f2) {
 				res->float_list_val[i] = f1->float_val / tmp;
 			} else if (op == MOD) {
 				res->float_list_val[i] = (int)f1->float_val % (int)f2->float_list_val[i];
+			} else if (op == POW) {
+				res->float_list_val[i] =  pow(f1->float_val, f2->float_list_val[i]);
 			}
 		}
 	}
@@ -420,12 +436,40 @@ float * parseValue(char * input) {
 				pushObj(res);
 
 				destroyObj(f1);
+			} else if (strcmp(param, "pow") == 0) {
+				mType * f1 = popObj();
+				mType * f2 = popObj();
+
+				mType * tmp = baseOp(POW, f2, f1);
+				pushObj(tmp);
+
+				destroyObj(f1);
+				destroyObj(f2);
 			} else if (strcmp(param, "dup") == 0) {
 				mType * f1 = popObj();
 				mType * df1 = dup(f1);
 
 				pushObj(f1);
 				pushObj(df1);
+			} else if (strcmp(param, "sin1") == 0) {
+				mType * totalNrOfSamples = popObj();
+				mType * freq = popObj();
+
+				float * res = sinGenA((int)freq->float_val, 0, BUFFER_LEN, (unsigned long int) totalNrOfSamples->float_val);
+
+				mType * tmp = createListObj(res, BUFFER_LEN);
+
+				pushObj(tmp);
+			} else if (strcmp(param, "sin2") == 0) {
+				mType * phase = popObj();
+				mType * totalNrOfSamples = popObj();
+				mType * freq = popObj();
+
+				float * res = sinGenPhase((int)freq->float_val, (int)phase, 0, BUFFER_LEN, (unsigned long int) totalNrOfSamples->float_val);
+
+				mType * tmp = createListObj(res, BUFFER_LEN);
+
+				pushObj(tmp);
 			}
 		}
 
@@ -464,6 +508,13 @@ int main(int argc, char **argv) {
 	test = "[10 10 10]|dup|[1 10 100]|*|+|5|/|5|%|inv|10|*";
 	test = "10|=a|3|+|:a|5|-|+";
 	test = "10|=a|3|+|:a|5|-|-";
+	test = "2|10|pow";
+	test = "[2 3 4 5]|2|pow";
+	test = "[2 3 4 5]|[2 3]|pow";
+	test = "10|[2 3 4 5 -2]|pow";
+	test = "[2 3 4 5]|[2 3 4 5 6 7 8]|pow";
+	test = "1|10|sin1|20|*";
+	test = "1|10|40|sin2|20|*";
 
 	float * res = parseValue(test);
 

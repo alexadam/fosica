@@ -1,2 +1,5 @@
 build: 
 	gcc -g -pedantic -Wall -Wextra -lefence -std=c99 -o fosica utils.c effects.c fosica.c  -lpthread -lm -L/usr/local/lib -ljansson -lportaudio -lsndfile -lsamplerate -Wl,-rpath -Wl,/usr/local/lib
+
+old: 
+	gcc -g -pedantic -Wall -Wextra -lefence -std=c99 -o fosica_old utils.c effects.c fosica_old.c  -lpthread -lm -L/usr/local/lib -ljansson -lportaudio -lsndfile -lsamplerate -Wl,-rpath -Wl,/usr/local/lib

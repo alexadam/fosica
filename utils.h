@@ -32,4 +32,6 @@ float string2float(char * input);
 
 char * dupstr(const char *s);
 
+int hash(char *str);
+
 #endif /* UTILS_H_ */

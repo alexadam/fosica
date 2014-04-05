@@ -4,6 +4,8 @@
 
 //float parseValue(char * input);
 
-float * parseValue(char * input, int bufferLen);
+//float * parseValue(char * input, int bufferLen);
+
+float * parseValue(char * input, int sequenceIndex, int abufferLen);
 
 #endif /* PARSER_H_ */

@@ -26,6 +26,7 @@
 //--------
 // root
 //--------
+float * parseValue(char * input, int sequenceIndex, int abufferLen);
 
 
 sndData resample(sndData * data, int newSamplingRate);
@@ -336,7 +337,7 @@ unsigned long globalIndex = 0;
 SNDFILE * outputFile;
 char * outputFileName = "out.wav";
 sndData dataBuffer;
-int BUFF_LEN = 4410; //FIXME
+int BUFF_LEN = 4410;// 22000; //FIXME
 track * tracks;
 int nrOfTracks = 0;
 
@@ -512,17 +513,9 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
     return paContinue;
 }
 
-int lastFileHash = 0;
-
 void createTracks() {
 
 	char * string = readFileToBuffer("merge.txt");
-
-	int newFileHash = hash(string);
-
-	if (newFileHash == lastFileHash) {
-		return;
-	}
 
 	if (nrOfTracks > 0) {
 		for (int i = 0; i < nrOfTracks; ++i) {
@@ -541,9 +534,6 @@ void createTracks() {
 
 		free(tracks);
 	}
-
-
-	lastFileHash = newFileHash;
 
 	nrOfTracks = 0;
 
@@ -631,31 +621,17 @@ void createTracks() {
 				lastTrack->sequences[cSequenceIndex].instructions = malloc((1 + strlen(cLine)) * sizeof(char));
 				strcpy (lastTrack->sequences[cSequenceIndex].instructions, cLine);
 
-				int newHash = hash(cLine);
+				int tempo = lastTrack->tempo;
+				int totalNrOfSeqs = lastTrack->totalNrOfSeqs;
+				int samplingRate = 44104; // TODO ??? framesPerSecond must be multiple of channel nr + what happens if inputdata.dataLength is even/ not multiple of nr channels
+				int framesPerSeq = (60.0 / tempo) * samplingRate;
+				int totalFrames = totalNrOfSeqs * framesPerSeq;
+				int trackIndex = globalIndex % totalFrames;
+				int sequenceIndex = (trackIndex - (lastTrack->sequences[cSequenceIndex].start * framesPerSeq));
+				int totalFramesPerSeq = (lastTrack->sequences[cSequenceIndex].stop - lastTrack->sequences[cSequenceIndex].start) * framesPerSeq;
 
-				if (lastTrack->sequences[cSequenceIndex].start != lastTrack->sequences[cSequenceIndex].lastStart ||
-						lastTrack->sequences[cSequenceIndex].stop != lastTrack->sequences[cSequenceIndex].lastStop ||
-						newHash != lastTrack->sequences[cSequenceIndex].lastHash) {
-
-				    int tempo = lastTrack->tempo;
-				    int totalNrOfSeqs = lastTrack->totalNrOfSeqs;
-				    int samplingRate = 44104; // TODO ??? framesPerSecond must be multiple of channel nr + what happens if inputdata.dataLength is even/ not multiple of nr channels
-				    int framesPerSeq = (60.0 / tempo) * samplingRate;
-				    int totalFrames = totalNrOfSeqs * framesPerSeq;
-				    int repeat = totalFrames;
-				    int currentSeq = -1;
-
-				    printf("Am intrat : %d %d %d %s\n", cSequenceIndex, newHash, lastTrack->sequences[cSequenceIndex].lastHash, cLine);
-
-				    lastTrack->sequences[cSequenceIndex].bufferLenInSamples = (lastTrack->sequences[cSequenceIndex].stop - lastTrack->sequences[cSequenceIndex].start) * framesPerSeq;
-				    lastTrack->sequences[cSequenceIndex].buffer = malloc(lastTrack->sequences[cSequenceIndex].bufferLenInSamples * sizeof(float));
-
-				    float * tmp = parseValue(cLine, lastTrack->sequences[cSequenceIndex].bufferLenInSamples);
-
-				    memcpy(lastTrack->sequences[cSequenceIndex].buffer, tmp, lastTrack->sequences[cSequenceIndex].bufferLenInSamples * sizeof(float));
-
-				    lastTrack->sequences[cSequenceIndex].lastHash = newHash;
-				}
+				lastTrack->sequences[cSequenceIndex].bufferLenInSamples = BUFF_LEN > totalFramesPerSeq ? totalFramesPerSeq : BUFF_LEN; //TODO review
+				lastTrack->sequences[cSequenceIndex].buffer = malloc(lastTrack->sequences[cSequenceIndex].bufferLenInSamples * sizeof(float));
 
 				cSequenceIndex++;
 			}
@@ -734,7 +710,7 @@ cachedSnd * getCachedSnd(char * name) {
 ////////////
 ////////////
 
-int BUFFER_LEN = 0;
+int localBufferLen = 0;
 
 typedef enum {cFLOAT, cSTRING, cFLOAT_LIST} ALL_TYPES;
 
@@ -882,11 +858,11 @@ mType * file(char * fileName, int start, int length) {
 
 	result->float_list_val = malloc(length * sizeof(float));
 
-	for (int i = 0; i < length; ++i) {
-		if (!csnd || i < csnd->snd.dataLength) {
-			result->float_list_val[i] = csnd->snd.data[i];
+	for (int i = start; i < (start + length); ++i) {
+		if (csnd && i < csnd->snd.dataLength) {
+			result->float_list_val[i - start] = csnd->snd.data[i];
 		} else {
-			result->float_list_val[i] = 0.0;
+			result->float_list_val[i - start] = 0.0;
 		}
 	}
 
@@ -1036,8 +1012,8 @@ mType * dup(mType * f1) {
 	return result;
 }
 
-float * parseValue(char * input, int abufferLen) {
-	BUFFER_LEN = abufferLen;
+float * parseValue(char * input, int sequenceIndex, int abufferLen) {
+	localBufferLen = abufferLen;
 	int inputLen = strlen(input);
 	int lastPosition = 0;
 	mType * res = NULL;
@@ -1075,7 +1051,7 @@ float * parseValue(char * input, int abufferLen) {
 			char ** commaParts = split(param, ',', &nrCommas);
 
 			if (strcmp(commaParts[0], "file") == 0) {
-				mType * tmp = file(commaParts[1], 0, BUFFER_LEN);
+				mType * tmp = file(commaParts[1], sequenceIndex, localBufferLen);
 				pushObj(tmp);
 			}
 
@@ -1179,9 +1155,9 @@ float * parseValue(char * input, int abufferLen) {
 				mType * totalNrOfSamples = popObj();
 				mType * freq = popObj();
 
-				float * res = sinGenA((int)freq->float_val, 0, BUFFER_LEN, (unsigned long int) totalNrOfSamples->float_val);
+				float * res = sinGenA((int)freq->float_val, sequenceIndex, localBufferLen, (unsigned long int) totalNrOfSamples->float_val);
 
-				mType * tmp = createListObj(res, BUFFER_LEN);
+				mType * tmp = createListObj(res, localBufferLen);
 
 				pushObj(tmp);
 
@@ -1192,9 +1168,9 @@ float * parseValue(char * input, int abufferLen) {
 				mType * totalNrOfSamples = popObj();
 				mType * freq = popObj();
 
-				float * res = sinGenPhase((int)freq->float_val, (int)phase, 0, BUFFER_LEN, (unsigned long int) totalNrOfSamples->float_val);
+				float * res = sinGenPhase((int)freq->float_val, (int)phase, 0, localBufferLen, (unsigned long int) totalNrOfSamples->float_val);
 
-				mType * tmp = createListObj(res, BUFFER_LEN);
+				mType * tmp = createListObj(res, localBufferLen);
 
 				pushObj(tmp);
 
@@ -1211,9 +1187,9 @@ float * parseValue(char * input, int abufferLen) {
 
 	res = popObj();
 
-	float * result = malloc(BUFFER_LEN * sizeof(float));
+	float * result = malloc(localBufferLen * sizeof(float));
 
-	for (int i = 0; i < BUFFER_LEN; ++i) {
+	for (int i = 0; i < localBufferLen; ++i) {
 		result[i] = 0.0;
 	}
 
@@ -1239,7 +1215,7 @@ void soundGenFunction(sndData * data, track * cTrack) {
     int repeat = totalFrames;
     int currentSeq = -1;
 
-    int foundCachedSound = 0;
+    int lastComputedSeq = -1;
 
 	for (int i = 0; i < data->dataLength; i += 1) {
 
@@ -1259,20 +1235,21 @@ void soundGenFunction(sndData * data, track * cTrack) {
 
 				unsigned long sequenceIndex = (trackIndex - (cTrack->sequences[var].start * framesPerSeq));
 
-				float val = 0.0;
+				//if not computed
+				if (currentSeq != lastComputedSeq) {
+					float * tmp = parseValue(cTrack->sequences[var].instructions, sequenceIndex, cTrack->sequences[var].bufferLenInSamples);
+					memcpy(cTrack->sequences[var].buffer, tmp, cTrack->sequences[var].bufferLenInSamples * sizeof(float));
+					lastComputedSeq = currentSeq;
+				}
 
-//				if (cTrack->forceStopSound == 0) {
-//					val = inputData.data[trackIndex % inputData.dataLength];
-//				} else if (goodIndex < inputData.dataLength) {
-//					val = getValueFromFile(cTrack->sequences[var].instructions, goodIndex);
-				val = cTrack->sequences[var].buffer[sequenceIndex];
-//					val = getValue(cTrack->sequences[var].instructions, sequenceIndex, tempo, totalNrOfSeqs, samplingRate);
-//				}
+				if (cTrack->sequences[var].bufferLenInSamples >= BUFF_LEN) {
+					if (i < cTrack->sequences[var].bufferLenInSamples)
+						data->data[i] = cTrack->sequences[var].buffer[i]; //TODO review
+				} else {
+					data->data[i] = cTrack->sequences[var].buffer[sequenceIndex];
+				}
 
-
-				data->data[i] = val;
-
-				break; //TODO do not 'break' but instead mix all val's from each sequence ?
+				break; //TODO do not 'break' but instead mix all vals from each sequence ?
 			}
 		}
 
@@ -1281,6 +1258,13 @@ void soundGenFunction(sndData * data, track * cTrack) {
 		}
 
     }
-
+/**
+ * soundsketch
+ * soundpattern
+ * namjera.com -> meaning, mind, tendency, notion, intension, design (Bosnian)
+ * kreirati.com -> design (Croatian)
+ * soundmodel.org
+ *
+ */
 
 }

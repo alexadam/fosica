@@ -8,16 +8,16 @@
 #include <portaudio.h>
 #include <jansson.h>
 
-#include "utils.h"
-#include "effects.h"
+#include "utils/utils.h"
+#include "effects/effects.h"
 #include "fosica.h"
-#include "parser.h"
+#include "scripting/parser.h"
 
 //#include "/usr/local/include/portaudio.h"
 //#include "libs/portaudio/include/portaudio.h"
 
 /*
- 	gcc  -std=c99 -o fosica utils.c effects.c fosica.c  -lpthread -lm -L/usr/local/lib -lportaudio -lsndfile -lsamplerate -Wl,-rpath -Wl,/usr/local/lib
+	gcc -g -pedantic -Wall -Wextra -lefence -std=c99 -o noiz utils/utils.c effects/effects.c noiz.c  -lpthread -lm -L/usr/local/lib -ljansson -lportaudio -lsndfile -lsamplerate -Wl,-rpath -Wl,/usr/local/lib
 
  */
 
@@ -332,12 +332,12 @@ void closeFile(SNDFILE *outfile) {
 
 
 
-unsigned long globalIndex = 0;
+unsigned long int globalIndex = 0;
 
 SNDFILE * outputFile;
 char * outputFileName = "out.wav";
 sndData dataBuffer;
-int BUFF_LEN = 4410;// 22000; //FIXME
+const int BUFF_LEN = 4000;// 22000; //FIXME
 track * tracks;
 int nrOfTracks = 0;
 
@@ -467,8 +467,6 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
 
 	silenceGenArray(dataBuffer.data, BUFF_LEN);
 
-    createTracks();
-
     /**
      *
      * Create the sound
@@ -513,176 +511,6 @@ int audioCallback( const void *inputBuffer, void *outputBuffer,
     return paContinue;
 }
 
-void createTracks() {
-
-	char * string = readFileToBuffer("merge.txt");
-
-	if (nrOfTracks > 0) {
-		for (int i = 0; i < nrOfTracks; ++i) {
-			if (tracks[i].sequences) {
-				for (int j = 0; j < tracks[i].nrOfSeqs; ++j) {
-					free(tracks[i].sequences[j].instructions);
-					free(tracks[i].sequences[j].buffer);
-
-					tracks[i].sequences[j].lastHash = 0;
-					tracks[i].sequences[j].lastStart = 0;
-					tracks[i].sequences[j].lastStop = 0;
-				}
-				free(tracks[i].sequences);
-			}
-		}
-
-		free(tracks);
-	}
-
-	nrOfTracks = 0;
-
-
-	/**
-
-	<nr Of Tracks>
-	track
-	<tempo>
-	<force stop sound>
-	<total sequences>
-	<nr of sequence>
-	<sequence start>
-	<sequence stop>
-	<sequence instruction>
-	<sequence start>
-	<sequence stop>
-	<sequence instruction>
-	.
-	.
-	.
-	.
-
-
-	 */
-
-	if (string) {
-
-		int trackHeader = 1;
-		int eventStart = 2;
-		int eventStop = 3;
-		int eventInstr = 4;
-		int lastEvent = -1;
-
-		track * lastTrack;
-		int nrOfLines = 0;
-		int cTrackIndex = 0;
-		int cSequenceIndex = 0;
-
-		char ** parts = split(string, '\n', &nrOfLines);
-
-		for (int i = 0; i < nrOfLines; ++i) {
-
-			char * cLine = parts[i];
-
-			if (i == 0) {
-				nrOfTracks = string2int(cLine);
-				tracks = malloc(nrOfTracks * sizeof(track));
-			} else if (strcmp(cLine, "track") == 0) {
-				lastEvent = trackHeader;
-
-				int tempo = string2int(parts[i+1]);
-				int forceStopSound = string2int(parts[i+2]);
-				int totalSeqs = string2int(parts[i+3]);
-				int currentSeqs = string2int(parts[i+4]);
-
-				i = i+4;
-
-				track t1;
-				t1.index = cTrackIndex;
-				t1.tempo = tempo;
-				t1.forceStopSound = forceStopSound;
-				t1.totalNrOfSeqs = totalSeqs;
-				t1.nrOfSeqs = currentSeqs;
-				t1.sequences = malloc(t1.nrOfSeqs * sizeof(sequence));
-				tracks[cTrackIndex] = t1;
-				cTrackIndex++;
-
-				lastTrack = &t1;
-				cSequenceIndex = 0;
-
-			} else if (lastEvent == trackHeader || lastEvent == eventInstr) {
-				lastEvent = eventStart;
-				lastTrack->sequences[cSequenceIndex].lastStart = lastTrack->sequences[cSequenceIndex].start;
-				lastTrack->sequences[cSequenceIndex].start = string2int(cLine);
-
-			} else if (lastEvent == eventStart) {
-				lastEvent = eventStop;
-				lastTrack->sequences[cSequenceIndex].lastStop = lastTrack->sequences[cSequenceIndex].stop;
-				lastTrack->sequences[cSequenceIndex].stop = string2int(cLine);
-
-			} else if (lastEvent == eventStop) {
-				lastEvent = eventInstr;
-
-				lastTrack->sequences[cSequenceIndex].instructions = malloc((1 + strlen(cLine)) * sizeof(char));
-				strcpy (lastTrack->sequences[cSequenceIndex].instructions, cLine);
-
-				int tempo = lastTrack->tempo;
-				int totalNrOfSeqs = lastTrack->totalNrOfSeqs;
-				int samplingRate = 44104; // TODO ??? framesPerSecond must be multiple of channel nr + what happens if inputdata.dataLength is even/ not multiple of nr channels
-				int framesPerSeq = (60.0 / tempo) * samplingRate;
-				int totalFrames = totalNrOfSeqs * framesPerSeq;
-				int trackIndex = globalIndex % totalFrames;
-				int sequenceIndex = (trackIndex - (lastTrack->sequences[cSequenceIndex].start * framesPerSeq));
-				int totalFramesPerSeq = (lastTrack->sequences[cSequenceIndex].stop - lastTrack->sequences[cSequenceIndex].start) * framesPerSeq;
-
-				lastTrack->sequences[cSequenceIndex].bufferLenInSamples = BUFF_LEN > totalFramesPerSeq ? totalFramesPerSeq : BUFF_LEN; //TODO review
-				lastTrack->sequences[cSequenceIndex].buffer = malloc(lastTrack->sequences[cSequenceIndex].bufferLenInSamples * sizeof(float));
-
-				cSequenceIndex++;
-			}
-
-			free(cLine);
-		}
-
-		free(string);
-		free(parts);
-	}
-}
-
-void * threadContainer(void * arg) {
-    threadArgContainer * argContainer = (threadArgContainer *) arg;
-
-    sndData tmpData = duplicateClean(argContainer->data);
-
-    track * cTrack = argContainer->cTrack;
-    soundGenFunction(&tmpData, cTrack);
-
-    pthread_mutex_lock(&bufferMutex);
-    mix2(argContainer->data, &tmpData);
-    pthread_mutex_unlock(&bufferMutex);
-
-    free(tmpData.data);
-
-    return NULL;
-}
-
-void createSound(sndData * data) {
-
-    pthread_t * threads = malloc(nrOfTracks * sizeof(pthread_t));
-    threadArgContainer * tac = malloc(nrOfTracks * sizeof(threadArgContainer));
-
-    int retCode = 0;
-
-    for (int i = 0; i < nrOfTracks; ++i) {
-        tac[i].cTrack = &tracks[i];
-        tac[i].data = data;
-
-        retCode = pthread_create(&threads[i], NULL, threadContainer, (void*) &tac[i]);
-    }
-
-    for (int i = 0; i < nrOfTracks; ++i) {
-        pthread_join(threads[i], NULL);
-    }
-
-    free(threads);
-    free(tac);
-}
-
 cachedSnd * getCachedSnd(char * name) {
 
 	for (int i2 = 0; i2 < nrOfCachedSnds; ++i2) {
@@ -703,568 +531,225 @@ cachedSnd * getCachedSnd(char * name) {
 	return &cachedSnds[nrOfCachedSnds - 1];
 }
 
+///////
+//////
+//////
 
+const int RING_BUFF_SIZE = 80000; //TODO multiple of BUFF_LEN
+
+typedef struct {
+	float * data;
+	int start;
+	int end;
+	int capacity;
+} RingBuff;
+
+typedef struct {
+	RingBuff *  bufferData;
+	char * instructions;
+	int lastHash;
+} cFunc;
+
+void addToBuffer(RingBuff * buffer, float val) {
+	buffer->data[buffer->end] = val;
+	buffer->end += 1;
+	buffer->end = buffer->end % buffer->capacity;
+}
+
+float getFromBuffer(RingBuff * buffer) {
+	float ret = buffer->data[buffer->start];
+	buffer->start += 1;
+	buffer->start = buffer->start % buffer->capacity;
+	return ret;
+}
+
+void resetBuffer(RingBuff * buffer) {
+	buffer->start = 0;
+	buffer->end = 0;
+}
+
+void file(char * name, int index, RingBuff * out, int bufferLen) {
+	cachedSnd* csnd;
+	csnd = getCachedSnd(name);
+
+	for (int i = 0; i < bufferLen; ++i) {
+		if (index + i >= csnd->snd.dataLength) {
+			addToBuffer(out, 0.0);
+		} else {
+			addToBuffer(out, csnd->snd.data[index + i]);
+		}
+	}
+}
+
+void eval(cFunc ** chain, int nextFunc, int index, int bufferLen) {
+
+	int currentHash = hash(chain[nextFunc]->instructions);
+
+	if (currentHash != chain[nextFunc]->instructions) {
+		resetBuffer(chain[nextFunc]->bufferData);
+	}
+
+	int diff = chain[nextFunc]->bufferData->end - chain[nextFunc]->bufferData->start;
+
+	if (diff < 0) {
+		diff = chain[nextFunc]->bufferData->capacity - diff;
+	}
+
+	if (diff >= bufferLen) {
+		return;
+	}
+
+	int localIndex = index;
+	int uuu = 0;
+
+	while (diff < bufferLen && uuu<2000000) {
+
+		uuu++;
+
+		int elemCount = 0;
+		char ** parts = split(chain[nextFunc]->instructions, ',', &elemCount);
+
+		if (strcmp(parts[0], "file") == 0) {
+			file(parts[1], localIndex, chain[nextFunc]->bufferData, bufferLen);
+		}
+
+		localIndex += bufferLen;
+
+		diff = chain[nextFunc]->bufferData->end - chain[nextFunc]->bufferData->start;
+
+		if (diff < 0) {
+			diff = chain[nextFunc]->bufferData->capacity - diff;
+		}
+
+		for (int i = 0; i < elemCount; ++i) {
+			free(parts[i]);
+		}
+		free(parts);
+
+	}
+}
+
+cFunc ** parse(char * fileContent) {
+	int elemCount = 0;
+	char ** parts = split(fileContent, '|', &elemCount);
+
+	cFunc ** chain = malloc(elemCount * sizeof(cFunc *));
+
+	for (int i = 0; i < elemCount; ++i) {
+		chain[i] = malloc(sizeof(cFunc));
+		chain[i]->instructions = malloc(sizeof(char) * (strlen(parts[i]) + 1));
+		strcpy(chain[i]->instructions, parts[i]);
+		chain[i]->lastHash = hash(parts[i]);
+		chain[i]->bufferData = malloc(sizeof(RingBuff));
+		chain[i]->bufferData->start = 0;
+		chain[i]->bufferData->end = 0;
+		chain[i]->bufferData->capacity = RING_BUFF_SIZE;
+		chain[i]->bufferData->data = malloc(chain[i]->bufferData->capacity * sizeof(float));
+	}
+
+	for (int i = 0; i < elemCount; ++i) {
+		free(parts[i]);
+	}
+	free(parts);
+
+	return chain;
+}
+
+int lastHash = 0;
+cFunc ** chain = NULL;
+
+void createSound(sndData * data) {
+
+	char * fileContent = readFileToBuffer("test.txt");
+	int currentHash = hash(fileContent);
+
+	if (fileContent && currentHash != lastHash) {
+		lastHash = currentHash;
+		chain = parse(fileContent);
+	}
+
+	eval(chain, 0, globalIndex, BUFF_LEN);
+
+	for (int i = 0; i < BUFF_LEN; ++i) {
+		data->data[i] = getFromBuffer(chain[0]->bufferData);
+	}
+
+}
 
 //////////////
 ////////////
 ////////////
 ////////////
 
-int localBufferLen = 0;
 
-typedef enum {cFLOAT, cSTRING, cFLOAT_LIST} ALL_TYPES;
 
-typedef struct
-{
-    ALL_TYPES type;
-    int size;
-
-    union
-    {
-    	float float_val;
-    	char * string_val;
-    	float * float_list_val;
-    };
-
-} mType;
-
-typedef struct
-{
-	mType ** data;
-    int index;
-    int capacity;
-} objStack;
-
-objStack oStack;
-mType ** vars;
-
-int maxVars = 30;
-
-typedef enum {ADD, SUB, MUL, DIV, MOD, POW, EQ, NOT, NOTEQ, GT, GTE, LT, LTE, AND, OR} OPS;
-
-void initStacks(int capacity) {
-	oStack.data = malloc(capacity * sizeof(mType *));
-	oStack.index = 0;
-	oStack.capacity = capacity;
-
-	vars = malloc(maxVars * sizeof(mType *));
-
-	for (int i = 0; i < maxVars; ++i) {
-		vars[i] = NULL;
-	}
-}
-
-void destroyStacks() {
-	for (int i = 0; i < oStack.index; ++i) {
-		destroyObj(oStack.data[i]);
-	}
-	free(oStack.data);
-}
-
-void destroyObj(mType * obj) {
-	if (obj->type == cFLOAT_LIST) {
-		free(obj->float_list_val);
-	}
-
-	free(obj);
-}
-
-void pushObj(mType * val) {
-	oStack.data[oStack.index] = val;
-	oStack.index++;
-	oStack.index = oStack.index % oStack.capacity;
-}
-
-mType * popObj() {
-	oStack.index--;
-	oStack.index = oStack.index % oStack.capacity;
-	return oStack.data[oStack.index];
-}
-
-mType * deepCopy(mType * source) {
-	mType * res = malloc(sizeof(mType));
-	res->type = source->type;
-
-	if (source->type == cFLOAT) {
-		res->float_val = source->float_val;
-	} else if (source->type == cFLOAT_LIST) {
-		res->size = source->size;
-		res->float_list_val = malloc(res->size * sizeof(float));
-		memcpy(res->float_list_val, source->float_list_val, res->size * sizeof(float));
-	}
-
-	return res;
-}
-
-mType * createListObj(float * input, int size) {
-	mType * res = malloc(sizeof(mType));
-
-	res->type = cFLOAT_LIST;
-	res->size = size;
-	res->float_list_val = malloc(size * sizeof(float));
-
-	memcpy(res->float_list_val, input, size * sizeof(float));
-
-	return res;
-}
-
-mType * parseList(char * listStr) {
-	mType * listElem = malloc(sizeof(mType));
-	listElem->type = cFLOAT_LIST;
-
-	int slen = strlen(listStr);
-	char * sub = substring(listStr, 1, slen - 2);
-	int elemCount = 0;
-	char ** listParts = split(sub, ' ', &elemCount);
-
-	listElem->size = elemCount;
-	listElem->float_list_val = malloc(elemCount * sizeof(float));
-
-	for (int i = 0; i < elemCount; ++i) {
-		listElem->float_list_val[i] = string2float(listParts[i]);
-	}
-
-	free(sub);
-	for (int i = 0; i < elemCount; ++i) {
-		free(listParts[i]);
-	}
-	free(listParts);
-
-	return listElem;
-}
-
-void printFStack() {
-	for (int i = 0; i < oStack.index; ++i) {
-		mType * tmp = oStack.data[i];
-
-		printf("lista are %p %d %d %d\n", tmp, tmp->size, oStack.index, i);
-
-		if (tmp->type == cFLOAT) {
-			printf("nr %f\n",tmp->float_val);
-		} else if (tmp->type == cFLOAT_LIST) {
-			for (int j = 0; j < tmp->size; ++j) {
-				printf("Float list %f\n", tmp->float_list_val[j]);
-			}
-		}
-	}
-}
-
-mType * file(char * fileName, int start, int length) {
-	mType * result = malloc(sizeof(mType));
-	result->type = cFLOAT_LIST;
-	result->size = length;
-
-	cachedSnd * csnd = getCachedSnd(fileName);
-
-	result->float_list_val = malloc(length * sizeof(float));
-
-	for (int i = start; i < (start + length); ++i) {
-		if (csnd && i < csnd->snd.dataLength) {
-			result->float_list_val[i - start] = csnd->snd.data[i];
-		} else {
-			result->float_list_val[i - start] = 0.0;
-		}
-	}
-
-	return result;
-}
-
-mType * baseOp(OPS op, mType * f1, mType * f2) {
-	mType * res = malloc(sizeof(mType));
-
-	if (f1->type == cFLOAT && f2->type == cFLOAT) {
-		res->type = cFLOAT;
-
-		if (op == ADD) {
-			res->float_val = f1->float_val + f2->float_val;
-		} else if (op == SUB) {
-			res->float_val = f1->float_val - f2->float_val;
-		} else if (op == MUL) {
-			res->float_val = f1->float_val * f2->float_val;
-		} else if (op == DIV) {
-			float tmp = f2->float_val;
-			if (tmp == 0.0) {
-				tmp = 1.0;
-			}
-
-			res->float_val = f1->float_val / tmp;
-		} else if (op == MOD) {
-			res->float_val = (int)f1->float_val % (int)f2->float_val;
-		} else if (op == POW) {
-			res->float_val =  pow(f1->float_val, f2->float_val);
-		}
-	} else if (f1->type == cFLOAT_LIST && f2->type == cFLOAT_LIST) {
-		res->type = cFLOAT_LIST;
-
-		res->size = f1->size;
-		res->float_list_val = malloc(f1->size * sizeof(float));
-
-		for (int i = 0; i < f1->size; ++i) {
-			if (i < f2->size) {
-
-				if (op == ADD) {
-					res->float_list_val[i] = f1->float_list_val[i] + f2->float_list_val[i];
-				} else if (op == SUB) {
-					res->float_list_val[i] = f1->float_list_val[i] - f2->float_list_val[i];
-				} else if (op == MUL) {
-					res->float_list_val[i] = f1->float_list_val[i] * f2->float_list_val[i];
-				} else if (op == DIV) {
-					float tmp = f2->float_list_val[i];
-					if (tmp == 0.0) {
-						tmp = 1.0;
-					}
-
-					res->float_list_val[i] = f1->float_list_val[i] / tmp;
-				} else if (op == MOD) {
-					res->float_list_val[i] = (int)f1->float_list_val[i] % (int)f2->float_list_val[i];
-				} else if (op == POW) {
-					res->float_list_val[i] =  pow(f1->float_list_val[i], f2->float_list_val[i]);
-				}
-			}
-		}
-	} else if (f1->type == cFLOAT_LIST && f2->type == cFLOAT) {
-		res->type = cFLOAT_LIST;
-		res->size = f1->size;
-		res->float_list_val = malloc(f1->size * sizeof(float));
-
-		for (int i = 0; i < f1->size; ++i) {
-
-			if (op == ADD) {
-				res->float_list_val[i] = f1->float_list_val[i] + f2->float_val;
-			} else if (op == SUB) {
-				res->float_list_val[i] = f1->float_list_val[i] - f2->float_val;
-			} else if (op == MUL) {
-				res->float_list_val[i] = f1->float_list_val[i] * f2->float_val;
-			} else if (op == DIV) {
-				float tmp = f2->float_val;
-				if (tmp == 0.0) {
-					tmp = 1.0;
-				}
-
-				res->float_list_val[i] = f1->float_list_val[i] / tmp;
-			} else if (op == MOD) {
-				res->float_list_val[i] = (int)f1->float_list_val[i] % (int)f2->float_val;
-			} else if (op == POW) {
-				res->float_list_val[i] =  pow(f1->float_list_val[i], f2->float_val);
-			}
-		}
-	} else if (f2->type == cFLOAT_LIST && f1->type == cFLOAT) {
-		res->type = cFLOAT_LIST;
-		res->size = f2->size;
-		res->float_list_val = malloc(f2->size * sizeof(float));
-
-		for (int i = 0; i < f2->size; ++i) {
-			if (op == ADD) {
-				res->float_list_val[i] = f1->float_val + f2->float_list_val[i];
-			} else if (op == SUB) {
-				res->float_list_val[i] = f1->float_val - f2->float_list_val[i];
-			} else if (op == MUL) {
-				res->float_list_val[i] = f1->float_val * f2->float_list_val[i];
-			} else if (op == DIV) {
-				float tmp = f2->float_list_val[i];
-				if (tmp == 0.0) {
-					tmp = 1.0;
-				}
-
-				res->float_list_val[i] = f1->float_val / tmp;
-			} else if (op == MOD) {
-				res->float_list_val[i] = (int)f1->float_val % (int)f2->float_list_val[i];
-			} else if (op == POW) {
-				res->float_list_val[i] =  pow(f1->float_val, f2->float_list_val[i]);
-			}
-		}
-	}
-
-	return res;
-}
-
-mType * inv(mType * f1) {
-	mType * result = malloc(sizeof(mType));
-
-	if (f1->type == cFLOAT) {
-		result->type = cFLOAT;
-		result->float_val = f1->float_val;
-	} else {
-		result->type = cFLOAT_LIST;
-		result->size = f1->size;
-		result->float_list_val = malloc(f1->size * sizeof(float));
-		for (int i = 0; i < f1->size; ++i) {
-			result->float_list_val[i] = f1->float_list_val[f1->size - i - 1];
-		}
-	}
-	return result;
-}
-
-mType * dup(mType * f1) {
-	mType * result = malloc(sizeof(mType));
-
-	if (f1->type == cFLOAT) {
-		result->type = cFLOAT;
-		result->float_val = f1->float_val;
-	} else {
-		result->type = cFLOAT_LIST;
-		result->size = f1->size;
-		result->float_list_val = malloc(f1->size * sizeof(float));
-		for (int i = 0; i < f1->size; ++i) {
-			result->float_list_val[i] = f1->float_list_val[i];
-		}
-	}
-	return result;
-}
-
-float * parseValue(char * input, int sequenceIndex, int abufferLen) {
-	localBufferLen = abufferLen;
-	int inputLen = strlen(input);
-	int lastPosition = 0;
-	mType * res = NULL;
-	initStacks(1024);
-
-	int elemCount = 0;
-	char ** parts = split(input, '|', &elemCount);
-
-	for (int i = 0; i < elemCount; ++i) {
-		char * param = parts[i];
-
-		if (param == NULL || strcmp(param, "") == 0) {
-			continue;
-		}
-
-		if (param[0] == '[') {
-			mType * tmp = parseList(param);
-			pushObj(tmp);
-
-			free(param);
-			continue;
-		}
-
-		int paramLen = strlen(param);
-		int hasCommas = 0;
-		for (int j = 0; j < paramLen; ++j) {
-			if (param[j] == ',') {
-				hasCommas = 1;
-				break;
-			}
-		}
-
-		if (hasCommas == 1) {
-			int nrCommas = 0;
-			char ** commaParts = split(param, ',', &nrCommas);
-
-			if (strcmp(commaParts[0], "file") == 0) {
-				mType * tmp = file(commaParts[1], sequenceIndex, localBufferLen);
-				pushObj(tmp);
-			}
-
-			for (int k = 0; k < nrCommas; ++k) {
-				free(commaParts[k]);
-			}
-			free(commaParts);
-		} else {
-
-			if (isdigit(param[0]) || (strlen(param) > 1 && isdigit(param[1]) && param[0] == '-')) {
-				float val = string2float(param);
-
-				mType * tmp = malloc(sizeof(mType));
-				tmp->type = cFLOAT;
-				tmp->float_val = val;
-				pushObj(tmp);
-			} else if (param[0] == '=') {
-				mType * tmp = popObj();
-
-				mType * newtmp = deepCopy(tmp);
-
-				vars[param[1] % maxVars] = newtmp;
-				pushObj(tmp);
-			} else if (param[0] == ':') {
-				mType * tmp = vars[param[1] % maxVars];
-
-				if (tmp == NULL) {
-					continue;
-				}
-
-				mType * newTmp = deepCopy(tmp);
-				pushObj(newTmp);
-			} else if (strcmp(param, "+") == 0) {
-				mType * f1 = popObj();
-				mType * f2 = popObj();
-
-				mType * tmp = baseOp(ADD, f1, f2);
-				pushObj(tmp);
-
-				destroyObj(f1);
-				destroyObj(f2);
-			} else if (strcmp(param, "-") == 0) {
-				mType * f1 = popObj();
-				mType * f2 = popObj();
-
-				mType * tmp = baseOp(SUB, f2, f1);
-				pushObj(tmp);
-
-				destroyObj(f1);
-				destroyObj(f2);
-			} else if (strcmp(param, "*") == 0) {
-				mType * f1 = popObj();
-				mType * f2 = popObj();
-
-				mType * tmp = baseOp(MUL, f1, f2);
-				pushObj(tmp);
-
-				destroyObj(f1);
-				destroyObj(f2);
-			} else if (strcmp(param, "/") == 0) {
-				mType * f1 = popObj();
-				mType * f2 = popObj();
-
-				mType * tmp = baseOp(DIV, f2, f1);
-				pushObj(tmp);
-
-				destroyObj(f1);
-				destroyObj(f2);
-			} else if (strcmp(param, "%") == 0) {
-				mType * f1 = popObj();
-				mType * f2 = popObj();
-
-				mType * tmp = baseOp(MOD, f2, f1);
-				pushObj(tmp);
-
-				destroyObj(f1);
-				destroyObj(f2);
-			} else if (strcmp(param, "inv") == 0) {
-				mType * f1 = popObj();
-
-				res = inv(f1);
-				pushObj(res);
-
-				destroyObj(f1);
-			} else if (strcmp(param, "pow") == 0) {
-				mType * f1 = popObj();
-				mType * f2 = popObj();
-
-				mType * tmp = baseOp(POW, f2, f1);
-				pushObj(tmp);
-
-				destroyObj(f1);
-				destroyObj(f2);
-			} else if (strcmp(param, "dup") == 0) {
-				mType * f1 = popObj();
-				mType * df1 = dup(f1);
-
-				pushObj(f1);
-				pushObj(df1);
-			} else if (strcmp(param, "sin1") == 0) {
-				mType * totalNrOfSamples = popObj();
-				mType * freq = popObj();
-
-				float * res = sinGenA((int)freq->float_val, sequenceIndex, localBufferLen, (unsigned long int) totalNrOfSamples->float_val);
-
-				mType * tmp = createListObj(res, localBufferLen);
-
-				pushObj(tmp);
-
-				destroyObj(totalNrOfSamples);
-				destroyObj(freq);
-			} else if (strcmp(param, "sin2") == 0) {
-				mType * phase = popObj();
-				mType * totalNrOfSamples = popObj();
-				mType * freq = popObj();
-
-				float * res = sinGenPhase((int)freq->float_val, (int)phase, 0, localBufferLen, (unsigned long int) totalNrOfSamples->float_val);
-
-				mType * tmp = createListObj(res, localBufferLen);
-
-				pushObj(tmp);
-
-				destroyObj(totalNrOfSamples);
-				destroyObj(freq);
-				destroyObj(phase);
-			}
-		}
-
-		free(param);
-	}
-
-	free(parts);
-
-	res = popObj();
-
-	float * result = malloc(localBufferLen * sizeof(float));
-
-	for (int i = 0; i < localBufferLen; ++i) {
-		result[i] = 0.0;
-	}
-
-	if (res->type == cFLOAT) {
-		result[0] = res->float_val;
-	} else if (res->type == cFLOAT_LIST) {
-		memcpy(result, res->float_list_val, res->size * sizeof(float));
-	}
-
-	destroyStacks();
-
-	return result;
-}
-
-
-void soundGenFunction(sndData * data, track * cTrack) {
-
-    int tempo = cTrack->tempo;
-    int totalNrOfSeqs = cTrack->totalNrOfSeqs;
-    int samplingRate = 44104; // TODO ??? framesPerSecond must be multiple of channel nr + what happens if inputdata.dataLength is even/ not multiple of nr channels
-    int framesPerSeq = (60.0 / tempo) * samplingRate;
-    int totalFrames = totalNrOfSeqs * framesPerSeq;
-    int repeat = totalFrames;
-    int currentSeq = -1;
-
-    int lastComputedSeq = -1;
-
-	for (int i = 0; i < data->dataLength; i += 1) {
-
-		int ch = i % data->nrOfChannels;
-
-		unsigned long int mainIndex = globalIndex + i;
-		unsigned long int trackIndex = mainIndex % repeat;
-
-		currentSeq = (int)trackIndex / framesPerSeq;
-
-		int foundSeq = 0;
-
-		for (int var = 0; var < cTrack->nrOfSeqs; ++var) {
-
-			if (currentSeq >= cTrack->sequences[var].start && currentSeq < cTrack->sequences[var].stop) {
-				foundSeq = 1;
-
-				unsigned long sequenceIndex = (trackIndex - (cTrack->sequences[var].start * framesPerSeq));
-
-				//if not computed
-				if (currentSeq != lastComputedSeq) {
-					float * tmp = parseValue(cTrack->sequences[var].instructions, sequenceIndex, cTrack->sequences[var].bufferLenInSamples);
-					memcpy(cTrack->sequences[var].buffer, tmp, cTrack->sequences[var].bufferLenInSamples * sizeof(float));
-					lastComputedSeq = currentSeq;
-				}
-
-				if (cTrack->sequences[var].bufferLenInSamples >= BUFF_LEN) {
-					if (i < cTrack->sequences[var].bufferLenInSamples)
-						data->data[i] = cTrack->sequences[var].buffer[i]; //TODO review
-				} else {
-					data->data[i] = cTrack->sequences[var].buffer[sequenceIndex];
-				}
-
-				break; //TODO do not 'break' but instead mix all vals from each sequence ?
-			}
-		}
-
-		if (foundSeq == 0) {
-			data->data[i] = 0.0;
-		}
-
-    }
-/**
- * soundsketch
- * soundpattern
- * namjera.com -> meaning, mind, tendency, notion, intension, design (Bosnian)
- * kreirati.com -> design (Croatian)
- * soundmodel.org
- *
- */
-
-}
+//void soundGenFunction(sndData * data, track * cTrack) {
+//
+////    int tempo = cTrack->tempo;
+////    int totalNrOfSeqs = cTrack->totalNrOfSeqs;
+////    int samplingRate = 44104; // TODO ??? framesPerSecond must be multiple of channel nr + what happens if inputdata.dataLength is even/ not multiple of nr channels
+////    int framesPerSeq = (60.0 / tempo) * samplingRate;
+////    int totalFrames = totalNrOfSeqs * framesPerSeq;
+////    int repeat = totalFrames;
+////    int currentSeq = -1;
+//
+////    int lastComputedSeq = -1;
+////
+////	for (int i = 0; i < data->dataLength; i += 1) {
+////
+////		int ch = i % data->nrOfChannels;
+////
+////		unsigned long int mainIndex = globalIndex + i;
+////		unsigned long int trackIndex = mainIndex % repeat;
+////
+////		currentSeq = (int)trackIndex / framesPerSeq;
+////
+////		int foundSeq = 0;
+////
+////		for (int var = 0; var < cTrack->nrOfSeqs; ++var) {
+////
+////			if (currentSeq >= cTrack->sequences[var].start && currentSeq < cTrack->sequences[var].stop) {
+////				foundSeq = 1;
+////
+////				unsigned long sequenceIndex = (trackIndex - (cTrack->sequences[var].start * framesPerSeq));
+////
+////				//if not computed
+////				if (currentSeq != lastComputedSeq) {
+////
+////					printf("AICI %d %d\n", currentSeq, var);
+////
+////					float * tmp = parseValue(cTrack->sequences[var].instructions, sequenceIndex, cTrack->sequences[var].bufferLenInSamples);
+////					memcpy(cTrack->sequences[var].buffer, tmp, cTrack->sequences[var].bufferLenInSamples * sizeof(float));
+////					lastComputedSeq = currentSeq;
+////				}
+////
+//////				if (cTrack->sequences[var].bufferLenInSamples >= BUFF_LEN) {
+//////					if (i < cTrack->sequences[var].bufferLenInSamples)
+////						data->data[i] = cTrack->sequences[var].buffer[i]; //TODO review
+//////				} else {
+//////					data->data[i] = cTrack->sequences[var].buffer[sequenceIndex];
+//////				}
+////
+////				break; //TODO do not 'break' but instead mix all vals from each sequence ?
+////			}
+////		}
+////
+////		if (foundSeq == 0) {
+////			data->data[i] = 0.0; //sin(2 * 3.1415 * 5 * i / BUFF_LEN) * 0.6;
+////		}
+////
+//////		else {
+//////			data->data[i] = cTrack->sequences[currentSeq].buffer[i]; //TODO review
+//////		}
+//
+////    }
+///**
+// * soundsketch
+// * soundpattern
+// * namjera.com -> meaning, mind, tendency, notion, intension, design (Bosnian)
+// * kreirati.com -> design (Croatian)
+// * soundmodel.org
+// *
+// */
+//
+//}

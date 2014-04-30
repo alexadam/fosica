@@ -47,7 +47,7 @@ void * getCachedObjById(CACHE * cache, int id) {
 
 void * putObjInCache(CACHE * cache, void * obj, size_t objSize, char * name) {
 	int cName = hash(name);
-	return putObjInCache(cache, obj, objSize, cName);
+	return putObjInCacheById(cache, obj, objSize, cName);
 }
 
 void * putObjInCacheById(CACHE * cache, void * obj, size_t objSize, int id) {

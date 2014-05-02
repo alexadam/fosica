@@ -75,12 +75,6 @@ void file(char * name, int index, RingBuff * out, int bufferLen) {
 
 void eval(cFunc ** chain, int nextFunc, int index, int bufferLen) {
 
-	int currentHash = hash(chain[nextFunc]->instructions);
-
-	if (currentHash != chain[nextFunc]->instructions) {
-		resetBuffer(chain[nextFunc]->bufferData);
-	}
-
 	int diff = chain[nextFunc]->bufferData->end - chain[nextFunc]->bufferData->start;
 
 	if (diff < 0) {
@@ -117,6 +111,11 @@ void eval(cFunc ** chain, int nextFunc, int index, int bufferLen) {
 			free(parts[i]);
 		}
 		free(parts);
+
+		//multiple buffer requests only if the 'final' buffer is smaller that bufferLen TODO test
+		if (nextFunc != 0) {
+			return;
+		}
 
 	}
 }

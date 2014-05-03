@@ -27,34 +27,29 @@ typedef struct {
 } GLOBAL_DATA;
 
 typedef struct {
-	float ** buffers;
-	int size;
-} DATA_BUFFERS;
-
-typedef struct {
 	GLOBAL_DATA * globalData;
 	int paramSize;
 	PARAM_WRAPPER ** params;
-	DATA_BUFFERS * input;
-	DATA_BUFFERS * output;
-} F_INPUT;
+	void * input; //FUNCTION_BUFFERS
+	float * output;
+} FUNCTION_DATA;
 
-typedef void (* F_PTR)(F_INPUT *);
+typedef void (* F_PTR)(FUNCTION_DATA *);
+
+typedef struct {
+	FUNCTION_DATA * f_data;
+	F_PTR f_ptr;
+} FUNCTION;
+
+typedef struct {
+	FUNCTION ** functions;
+	int size;
+} FUNCTION_BUFFERS;
 
 F_PTR getFWrapper(char * name);
 
-void f_repeat(F_INPUT * input);
-void f_file(F_INPUT * input);
-
-
-//float sinGen(int index, int freq, unsigned long int lengthInSamples);
-//
-//void sinGenArray(float * data, int freq, int samplingRate, unsigned long int lengthInSamples);
-//
-//float * sinGenA(int freq, unsigned long int startIndex, unsigned long int nrOfSamples, unsigned long int totalNrOfSamples);
-//
-//float * sinGenPhase(int freq, int phase, unsigned long int startIndex, unsigned long int nrOfSamples, unsigned long int totalNrOfSamples);
-//
-//void silenceGenArray(float * data, unsigned long int lengthInSamples);
+void f_repeat(FUNCTION_DATA * input);
+void f_file(FUNCTION_DATA * input);
+void f_mix(FUNCTION_DATA * input);
 
 #endif /* EFFECTS_H_ */

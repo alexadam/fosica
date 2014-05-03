@@ -16,30 +16,13 @@
 
 /**
 
-gcc -g -pedantic -Wall -Wextra -lefence -std=c99 -o p_func ../utils/utils.c ../cache/cache.c ../effects/effects.c p_func.c
+-g -pedantic -Wall -Wextra -lefence
 
-example:
-file,'name',reverse,samplingRate,<,>1
-repeat,after,totalSeqs,tempo,<1,>2
-channel,1,<1,>3
-
+gcc  -std=c99 -o p_func ../utils/utils.c ../utils/noiz_utils.c ../cache/cache.c ../effects/effects.c p_func.c
 
  */
 
-typedef struct {
-	F_INPUT * f_in;
-	F_PTR f;
-} Func;
-
-float ** buffers;
-
-void initBuffers(int nrOfBuffers, int bufferLen) {
-	buffers = malloc(nrOfBuffers * sizeof(float *));
-
-	for (int i = 0; i < nrOfBuffers; ++i) {
-		buffers[i] = malloc(bufferLen * sizeof(float));
-	}
-}
+FUNCTION ** functions = NULL;
 
 int isFloat(char * input) {
 	if (input == NULL) {
@@ -53,22 +36,6 @@ int isFloat(char * input) {
 	}
 
 	return 0;
-}
-
-void parseIntList(int * output, int size, char ** parts) {
-	output = malloc(size * sizeof(int));
-
-	for (int i = 0; i < size; ++i) {
-		output[i] = string2int(parts[i]);
-	}
-}
-
-void parseFloatList(float * output, int size, char ** parts) {
-	output = malloc(size * sizeof(float));
-
-	for (int i = 0; i < size; ++i) {
-		output[i] = string2float(parts[i]);
-	}
 }
 
 void parseParam(PARAM_WRAPPER * wrapper, char * param) {
@@ -87,10 +54,20 @@ void parseParam(PARAM_WRAPPER * wrapper, char * param) {
 
 		if (isFloat(listParts[0])) {
 			wrapper->type = FLOAT_VAL_LIST;
-			parseFloatList(wrapper->floatListVal, listElemSize, listParts);
+			wrapper->size = listElemSize;
+			wrapper->floatListVal = malloc(listElemSize * sizeof(float));
+
+			for (int i = 0; i < listElemSize; ++i) {
+				wrapper->floatListVal[i] = string2float(listParts[i]);
+			}
 		} else {
 			wrapper->type = INT_VAL_LIST;
-			parseIntList(wrapper->intListVal, listElemSize, listParts);
+			wrapper->size = listElemSize;
+			wrapper->intListVal = malloc(listElemSize * sizeof(int));
+
+			for (int i = 0; i < listElemSize; ++i) {
+				wrapper->intListVal[i] = string2int(listParts[i]);
+			}
 		}
 	} else if (param[0] == '\'') {
 		wrapper->type = CHAR_VAL;
@@ -99,91 +76,93 @@ void parseParam(PARAM_WRAPPER * wrapper, char * param) {
 	}
 }
 
-void parseDataBuffers(DATA_BUFFERS * input, char * param) {
+void parseDataBuffers(FUNCTION_BUFFERS * input, char * param) {
 	int nrOfParams = 0;
 	char ** paramParts = split(param, ' ', &nrOfParams);
 
 	input->size = nrOfParams;
-	input->buffers = malloc(nrOfParams * sizeof(float *));
+	input->functions = malloc(nrOfParams * sizeof(FUNCTION));
 
 	for (int i = 0; i < nrOfParams; ++i) {
-		input->buffers[i] = buffers[string2int(paramParts[i])];
+		input->functions[i] = functions[string2int(paramParts[i])];
+		printf("PPPPP %p %p\n", input->functions[i], functions[string2int(paramParts[i])]);
 	}
 }
 
-Func ** parseFunc(char * input, int * nrOfFunc) {
+FUNCTION ** parseFunc(char * input, int * nrOfFunc, int bufferLen) {
 	char ** funcParts = split(input, '\n', nrOfFunc);
 
-	Func ** ret = malloc(*nrOfFunc * sizeof(Func *));
+	functions = malloc(*nrOfFunc * sizeof(FUNCTION *));
 
 	for (int i = 0; i < *nrOfFunc; ++i) {
-		ret[i] = malloc(sizeof(Func));
+		functions[i] = malloc(sizeof(FUNCTION));
 
 		int nrOfParams = 0;
 		char ** parts = split(funcParts[i], ',', &nrOfParams);
 
-		ret[i]->f = getFWrapper(parts[0]);
+		functions[i]->f_ptr = getFWrapper(parts[0]);
 
-		ret[i]->f_in = malloc(sizeof(F_INPUT));
-		ret[i]->f_in->globalData = malloc(sizeof(GLOBAL_DATA));
-		ret[i]->f_in->paramSize = nrOfParams - 3;
-		ret[i]->f_in->params = malloc(ret[i]->f_in->paramSize * sizeof(PARAM_WRAPPER *));
+		functions[i]->f_data = malloc(sizeof(FUNCTION_DATA));
+		functions[i]->f_data->globalData = malloc(sizeof(GLOBAL_DATA));
+		functions[i]->f_data->paramSize = nrOfParams - 2;
+		functions[i]->f_data->params = malloc(functions[i]->f_data->paramSize * sizeof(PARAM_WRAPPER *));
+		functions[i]->f_data->output = malloc(bufferLen * sizeof(float));
 
 		for (int j = 1; j < nrOfParams; ++j) {
 			if (parts[j][0] == '<') {
 
 				if (strlen(parts[j]) == 1) {
-					ret[i]->f_in->input = NULL;
+					functions[i]->f_data->input = NULL;
 				} else {
-					ret[i]->f_in->input = malloc(sizeof(DATA_BUFFERS));
-					parseDataBuffers(ret[i]->f_in->input, &parts[j][1]);
-				}
-			} else if (parts[j][0] == '>') {
-
-				if (strlen(parts[j]) == 1) {
-					ret[i]->f_in->output = NULL;
-				} else {
-					ret[i]->f_in->output = malloc(sizeof(DATA_BUFFERS));
-					parseDataBuffers(ret[i]->f_in->output, &parts[j][1]);
+					functions[i]->f_data->input = malloc(sizeof(FUNCTION_BUFFERS));
+					printf("input\n");
+					parseDataBuffers((FUNCTION_BUFFERS *)functions[i]->f_data->input, &parts[j][1]);
 				}
 			} else {
-				ret[i]->f_in->params[j-1] = malloc(sizeof(PARAM_WRAPPER));
-				parseParam(ret[i]->f_in->params[j-1], parts[j]);
+				functions[i]->f_data->params[j-1] = malloc(sizeof(PARAM_WRAPPER));
+				parseParam(functions[i]->f_data->params[j-1], parts[j]);
 			}
 		}
 	}
 
-	return ret;
+	return functions;
 }
 
-void eval(Func * ff, GLOBAL_DATA * gd) {
-	ff->f_in->globalData = gd;
-	ff->f(ff->f_in);
+void eval(FUNCTION * ff, GLOBAL_DATA * gd) {
+	ff->f_data->globalData->bufferLen = gd->bufferLen;
+	ff->f_data->globalData->index = gd->index;
+	ff->f_data->globalData->nrOfChannels = gd->nrOfChannels;
+	ff->f_data->globalData->samplingRate = gd->samplingRate;
+
+	ff->f_ptr(ff->f_data);
 }
 
+int lastHash = -1;
+FUNCTION ** parsedFunc = NULL;
+int nrFunc = 0;
 
 float * getValue(char * input, int sequenceIndex, int bufferLen) {
-	return NULL;
-}
+	int currentHash = hash(input);
 
-int main(int argc, char **argv) {
-	initBuffers(10, 4000);
-	char * test = "file,'name,0,44100,<,>0\nrepeat,100000,32,240,<0,>1";
-
-	int nrF = 0;
-	Func** r;
-	r = parseFunc(test, &nrF);
-
-	GLOBAL_DATA * gd = malloc(sizeof(GLOBAL_DATA));
-	gd->bufferLen = 4000;
-	gd->index = 1255;
-	gd->nrOfChannels = 2;
-	gd->samplingRate = 44100;
-
-	for (int i = 0; i < nrF; ++i) {
-		eval(r[i], gd);
+	if (currentHash != lastHash) {
+		parsedFunc = parseFunc(input, &nrFunc, bufferLen);
+		lastHash = currentHash;
 	}
 
-	printf("REZ %f\n", buffers[nrF-1][0]);
-}
+	GLOBAL_DATA * gd = malloc(sizeof(GLOBAL_DATA));
+	gd->bufferLen = bufferLen;
+	gd->index = sequenceIndex;
+	gd->nrOfChannels = 2;
+	gd->samplingRate = 44104;
 
+	for (int i = 0; i < nrFunc; ++i) {
+		eval(parsedFunc[i], gd);
+	}
+
+//
+//	for (int i = 0; i < bufferLen; ++i) {
+//		printf("REZ %f\n", buffers[nrFunc-1][i]);
+//	}
+
+	return functions[nrFunc-1]->f_data->output;
+}

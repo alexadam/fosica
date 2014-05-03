@@ -62,6 +62,12 @@ void createSound(sndData * data);
 void * threadContainer(void * arg);
 pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 
+void silenceGenArray(float * data, unsigned long int lengthInSamples) {
+    for (int i = 0; i< lengthInSamples; i++) {
+        data[i] = 0.0;
+    }
+}
+
 void init() {
 
     /**

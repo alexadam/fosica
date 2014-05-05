@@ -23,6 +23,8 @@ gcc  -std=c99 -o p_func ../utils/utils.c ../utils/noiz_utils.c ../cache/cache.c 
  */
 
 FUNCTION ** functions = NULL;
+int lastHash = -1;
+int nrFunc = 0;
 
 int isFloat(char * input) {
 	if (input == NULL) {
@@ -85,11 +87,10 @@ void parseDataBuffers(FUNCTION_BUFFERS * input, char * param) {
 
 	for (int i = 0; i < nrOfParams; ++i) {
 		input->functions[i] = functions[string2int(paramParts[i])];
-		printf("PPPPP %p %p\n", input->functions[i], functions[string2int(paramParts[i])]);
 	}
 }
 
-FUNCTION ** parseFunc(char * input, int * nrOfFunc, int bufferLen) {
+void parseFunc(char * input, int * nrOfFunc, int bufferLen) {
 	char ** funcParts = split(input, '\n', nrOfFunc);
 
 	functions = malloc(*nrOfFunc * sizeof(FUNCTION *));
@@ -115,7 +116,6 @@ FUNCTION ** parseFunc(char * input, int * nrOfFunc, int bufferLen) {
 					functions[i]->f_data->input = NULL;
 				} else {
 					functions[i]->f_data->input = malloc(sizeof(FUNCTION_BUFFERS));
-					printf("input\n");
 					parseDataBuffers((FUNCTION_BUFFERS *)functions[i]->f_data->input, &parts[j][1]);
 				}
 			} else {
@@ -123,9 +123,18 @@ FUNCTION ** parseFunc(char * input, int * nrOfFunc, int bufferLen) {
 				parseParam(functions[i]->f_data->params[j-1], parts[j]);
 			}
 		}
+
+		printf("QQQQQQQ %d \n", i);
 	}
 
-	return functions;
+	printf("KKKKK \n");
+}
+
+void destroyFunc() {
+	for (int i = 0; i < nrFunc; ++i) {
+		free(functions[i]->f_data);
+	}
+	free(functions);
 }
 
 void eval(FUNCTION * ff, GLOBAL_DATA * gd) {
@@ -137,15 +146,15 @@ void eval(FUNCTION * ff, GLOBAL_DATA * gd) {
 	ff->f_ptr(ff->f_data);
 }
 
-int lastHash = -1;
-FUNCTION ** parsedFunc = NULL;
-int nrFunc = 0;
-
 float * getValue(char * input, int sequenceIndex, int bufferLen) {
 	int currentHash = hash(input);
 
 	if (currentHash != lastHash) {
-		parsedFunc = parseFunc(input, &nrFunc, bufferLen);
+		if (functions != NULL) {
+			destroyFunc();
+		}
+		nrFunc = 0;
+		parseFunc(input, &nrFunc, bufferLen);
 		lastHash = currentHash;
 	}
 
@@ -156,7 +165,7 @@ float * getValue(char * input, int sequenceIndex, int bufferLen) {
 	gd->samplingRate = 44104;
 
 	for (int i = 0; i < nrFunc; ++i) {
-		eval(parsedFunc[i], gd);
+		eval(functions[i], gd);
 	}
 
 //

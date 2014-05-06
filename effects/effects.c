@@ -21,6 +21,8 @@ F_PTR getFWrapper(char * name) {
 		return f_file;
 	if (strcmp(name, "mix") == 0)
 		return f_mix;
+	if (strcmp(name, "channel") == 0)
+		return f_channel;
 
 	return NULL;
 }
@@ -87,7 +89,7 @@ void f_mix(FUNCTION_DATA * function_data) {
 	for (int i = 0; i < function_data->globalData->bufferLen; ++i) {
 		function_data->output[i] = 0.0;
 		for (int j = 0; j < input_fb->size; ++j) {
-			function_data->output[i] += input_fb->functions[j]->f_data->output[i];
+			function_data->output[i] += input_fb->functions[j]->f_data->output[i] * 0.8; //TODO
 		}
 	}
 }
@@ -203,5 +205,35 @@ void f_file(FUNCTION_DATA * function_data) {
 			function_data->output[i] = csnd->data[t_index];
 		}
 	}
+
+}
+
+void f_channel(FUNCTION_DATA * function_data) {
+	// channel -> ex: channel,0,<in (one input); 0 -> left channel; 1 -> right channel; other nr -> both channels
+
+	if (function_data->paramSize != 1) {
+		printf("Wrong params - f_channel");
+		return;
+	}
+
+	int channel = function_data->params[0]->intVal;
+
+	FUNCTION_BUFFERS * input_fb = (FUNCTION_BUFFERS *) function_data->input;
+
+	input_fb->functions[0]->f_ptr(input_fb->functions[0]->f_data);
+
+	for (int i = 0; i < function_data->globalData->bufferLen; i += 1) {
+		int ch = i % function_data->globalData->nrOfChannels;
+		if (ch == channel) {
+			function_data->output[i] = 0.0;
+		} else {
+			function_data->output[i] = input_fb->functions[0]->f_data->output[i];
+		}
+	}
+}
+
+void f_at_frame(FUNCTION_DATA * function_data) {
+	// startFrame, endFrame -> ex: at_frame,1780043,666542,<i1  (single input)
+	//TODO
 
 }

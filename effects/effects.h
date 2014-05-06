@@ -51,5 +51,6 @@ F_PTR getFWrapper(char * name);
 void f_repeat(FUNCTION_DATA * input);
 void f_file(FUNCTION_DATA * input);
 void f_mix(FUNCTION_DATA * input);
+void f_channel(FUNCTION_DATA * input);
 
 #endif /* EFFECTS_H_ */

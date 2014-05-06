@@ -23,6 +23,7 @@ gcc  -std=c99 -o p_func ../utils/utils.c ../utils/noiz_utils.c ../cache/cache.c 
  */
 
 FUNCTION ** functions = NULL;
+GLOBAL_DATA * gd = NULL;
 int lastHash = -1;
 int nrFunc = 0;
 
@@ -88,6 +89,11 @@ void parseDataBuffers(FUNCTION_BUFFERS * input, char * param) {
 	for (int i = 0; i < nrOfParams; ++i) {
 		input->functions[i] = functions[string2int(paramParts[i])];
 	}
+
+	for (int i = 0; i < nrOfParams; ++i) {
+		free(paramParts[i]);
+	}
+	free(paramParts);
 }
 
 void parseFunc(char * input, int * nrOfFunc, int bufferLen) {
@@ -123,15 +129,33 @@ void parseFunc(char * input, int * nrOfFunc, int bufferLen) {
 				parseParam(functions[i]->f_data->params[j-1], parts[j]);
 			}
 		}
-
-		printf("QQQQQQQ %d \n", i);
 	}
 
-	printf("KKKKK \n");
+	for (int i = 0; i < *nrOfFunc; ++i) {
+		free(funcParts[i]);
+	}
+	free(funcParts);
 }
 
 void destroyFunc() {
 	for (int i = 0; i < nrFunc; ++i) {
+		free(functions[i]->f_data->output);
+		free(functions[i]->f_data->input);
+		free(functions[i]->f_data->globalData);
+
+		for (int j = 0; j < functions[i]->f_data->paramSize; ++j) {
+			if (functions[i]->f_data->params[j]->type == FLOAT_VAL_LIST) {
+				free(functions[i]->f_data->params[j]->floatListVal);
+			} else if (functions[i]->f_data->params[j]->type == INT_VAL_LIST) {
+				free(functions[i]->f_data->params[j]->intListVal);
+			} else if (functions[i]->f_data->params[j]->type == CHAR_VAL) {
+				free(functions[i]->f_data->params[j]->charVal);
+			} else if (functions[i]->f_data->params[j]->type == CHAR_VAL_LIST) {
+				free(functions[i]->f_data->params[j]->charListVal);
+			}
+		}
+
+		free(functions[i]->f_data->params);
 		free(functions[i]->f_data);
 	}
 	free(functions);
@@ -150,6 +174,8 @@ float * getValue(char * input, int sequenceIndex, int bufferLen) {
 	int currentHash = hash(input);
 
 	if (currentHash != lastHash) {
+		//TODO replace global variables: #index, #sampling-rate, #channels etc.
+
 		if (functions != NULL) {
 			destroyFunc();
 		}
@@ -158,7 +184,10 @@ float * getValue(char * input, int sequenceIndex, int bufferLen) {
 		lastHash = currentHash;
 	}
 
-	GLOBAL_DATA * gd = malloc(sizeof(GLOBAL_DATA));
+	if (gd == NULL) {
+		gd = malloc(sizeof(GLOBAL_DATA));
+	}
+
 	gd->bufferLen = bufferLen;
 	gd->index = sequenceIndex;
 	gd->nrOfChannels = 2;
@@ -167,11 +196,6 @@ float * getValue(char * input, int sequenceIndex, int bufferLen) {
 	for (int i = 0; i < nrFunc; ++i) {
 		eval(functions[i], gd);
 	}
-
-//
-//	for (int i = 0; i < bufferLen; ++i) {
-//		printf("REZ %f\n", buffers[nrFunc-1][i]);
-//	}
 
 	return functions[nrFunc-1]->f_data->output;
 }

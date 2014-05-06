@@ -220,6 +220,8 @@ void createSound(sndData * data) {
 	float * tmp = getValue(fileContent, globalIndex, BUFF_LEN);
 
 	memcpy(data->data, tmp, BUFF_LEN * sizeof(float));
+
+	free(fileContent); //TODO might be time consuming !!
 }
 
 //////////////

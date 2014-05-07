@@ -52,5 +52,8 @@ void f_repeat(FUNCTION_DATA * input);
 void f_file(FUNCTION_DATA * input);
 void f_mix(FUNCTION_DATA * input);
 void f_channel(FUNCTION_DATA * input);
+void f_sin_osc(FUNCTION_DATA * function_data);
+void f_tri_osc(FUNCTION_DATA * function_data);
+void f_mul(FUNCTION_DATA * function_data);
 
 #endif /* EFFECTS_H_ */

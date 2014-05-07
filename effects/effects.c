@@ -23,6 +23,12 @@ F_PTR getFWrapper(char * name) {
 		return f_mix;
 	if (strcmp(name, "channel") == 0)
 		return f_channel;
+	if (strcmp(name, "sinOsc") == 0)
+		return f_sin_osc;
+	if (strcmp(name, "triOsc") == 0)
+		return f_tri_osc;
+	if (strcmp(name, "mul") == 0)
+		return f_mul;
 
 	return NULL;
 }
@@ -228,6 +234,94 @@ void f_channel(FUNCTION_DATA * function_data) {
 			function_data->output[i] = 0.0;
 		} else {
 			function_data->output[i] = input_fb->functions[0]->f_data->output[i];
+		}
+	}
+}
+
+void f_sin_osc(FUNCTION_DATA * function_data) {
+	// freq, phase, period, channels;   === no input; channels 1 or 2 (no 0)
+
+	if (function_data->paramSize != 4) {
+		printf("Wrong params - f_sin_osc");
+		return;
+	}
+
+	int freq = function_data->params[0]->intVal;
+	int phase = function_data->params[1]->intVal;
+	int period_frames = function_data->params[2]->intVal;
+	int channels = function_data->params[3]->intVal;
+	int startIndex = function_data->globalData->index;
+
+	if (channels < 1) {
+		printf("Wrong channels (must be > 1) - f_sin_osc");
+		channels = 1;
+	}
+
+	for (int i = 0; i < function_data->globalData->bufferLen; i += channels) {
+		int ni = (int) i / channels;
+		float sv = sin((6.283 * freq * (startIndex + ni) + phase * 3.1415 / 180)/ period_frames);
+
+		for (int c = 0; c < channels; ++c) {
+			function_data->output[i + c] = sv;
+		}
+	}
+}
+
+void f_tri_osc(FUNCTION_DATA * function_data) {
+	// freq, phase, period, channels;   === no input; channels 1 or 2 (no 0)
+
+	if (function_data->paramSize != 4) {
+		printf("Wrong params - f_sin_osc");
+		return;
+	}
+
+	int freq = function_data->params[0]->intVal;
+	int phase = function_data->params[1]->intVal;
+	int period_frames = function_data->params[2]->intVal;
+	int channels = function_data->params[3]->intVal;
+	int startIndex = function_data->globalData->index;
+
+	if (channels < 1) {
+		printf("Wrong channels (must be > 1) - f_sin_osc");
+		channels = 1;
+	}
+
+	int per = period_frames / freq;
+	int hper = per / 2;
+
+	for (int i = 0; i < function_data->globalData->bufferLen; i += channels) {
+		int ni = startIndex + (int) i / channels;
+//		float sv = (float)(hper - abs((startIndex + ni) % (2 * hper) - hper)) / hper; //(float)(hper - abs((startIndex + ni) % (2 * hper) - per)) / hper;// (float)((startIndex + ni) % (hper)) / hper;
+//		float sv = (float)2 * ((float)(startIndex + ni)/hper - floor(0.5 + (startIndex + ni)/hper));
+//		float sv = (float)2/hper * ((startIndex + ni) - hper * floor((float)(startIndex + ni)/hper + 0.5)) / ((float)(startIndex + ni)/hper + 0.5); //spiral
+
+		float sv = 0.0;
+
+		if (ni % per < hper) {
+			sv =  4 * (float)(ni % per)/per - 1;
+		} else {
+			sv = 3 - 4 * (float)(ni % per)/per;
+		}
+
+		for (int c = 0; c < channels; ++c) {
+			function_data->output[i + c] = sv;
+		}
+	}
+}
+
+void f_mul(FUNCTION_DATA * function_data) {
+	// mul,<i1 i2 ... in
+
+	FUNCTION_BUFFERS * input_fb = (FUNCTION_BUFFERS *) function_data->input;
+
+	for (int i = 0; i < input_fb->size; ++i) {
+		input_fb->functions[i]->f_ptr(input_fb->functions[i]->f_data);
+	}
+
+	for (int i = 0; i < function_data->globalData->bufferLen; ++i) {
+		function_data->output[i] = 1.0;
+		for (int j = 0; j < input_fb->size; ++j) {
+			function_data->output[i] *= input_fb->functions[j]->f_data->output[i];
 		}
 	}
 }

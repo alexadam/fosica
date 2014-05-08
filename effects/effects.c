@@ -102,19 +102,33 @@ void f_mix(FUNCTION_DATA * function_data) {
 
 CACHE * localCache = NULL;
 
-sndData * getCachedSnd(char * name) {
+sndData * getCachedSnd(char * name, char * saveName, int reverse, int samplingRate) {
 
 	if (localCache == NULL) {
 		localCache = initCache(10);
 	}
 
 	void* co;
-	co = getCachedObj(localCache, name);
+	co = getCachedObj(localCache, saveName);
 
 	if (co == NULL) {
 		sndData snd;
 		snd = readFile(name);
-		co = putObjInCache(localCache, &snd, sizeof(snd), name);
+
+		if (reverse == 1) {
+			for (int i = 0; i < snd.dataLength / 2; ++i) {
+				int ri = snd.dataLength - i - 1;
+				float tmp = snd.data[i];
+				snd.data[i] = snd.data[ri];
+				snd.data[ri] = tmp;
+			}
+		}
+
+		if (samplingRate != 0 && samplingRate != snd.samplingRate) {
+			snd = resample(&snd, samplingRate);
+		}
+
+		co = putObjInCache(localCache, &snd, sizeof(snd), saveName);
 	}
 
 	return co;
@@ -192,11 +206,15 @@ void f_file(FUNCTION_DATA * function_data) {
 	}
 
 	char * fileName = function_data->params[0]->charVal;
+	char * samplingRateStr = int2string(function_data->params[1]->intVal);
+	char * reverseStr = int2string(function_data->params[2]->intVal);
+
+	char * newFileName = localconcat(localconcat(fileName, samplingRateStr), reverseStr);
 
 	float bb = 0.0;
 
 	sndData* csnd;
-	csnd = getCachedSnd(fileName);
+	csnd = getCachedSnd(fileName, newFileName, function_data->params[1]->intVal, function_data->params[2]->intVal);
 
 	if (csnd == NULL) {
 		return;
@@ -211,6 +229,10 @@ void f_file(FUNCTION_DATA * function_data) {
 			function_data->output[i] = csnd->data[t_index];
 		}
 	}
+
+//	free(fileName);
+//	free(samplingRateStr);
+//	free(reverseStr);
 
 }
 

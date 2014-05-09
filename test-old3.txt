@@ -1,0 +1,4 @@
+file,'sounds/jz.flac,0,0,<
+file,'sounds/dm.flac,0,0,<
+sqrOsc,30,60000
+mul,<2 1

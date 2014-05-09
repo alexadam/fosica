@@ -54,6 +54,14 @@ void f_mix(FUNCTION_DATA * input);
 void f_channel(FUNCTION_DATA * input);
 void f_sin_osc(FUNCTION_DATA * function_data);
 void f_tri_osc(FUNCTION_DATA * function_data);
+void f_sqr_osc(FUNCTION_DATA * function_data);
+void f_saw_osc(FUNCTION_DATA * function_data);
+void f_exp(FUNCTION_DATA * function_data);
+void f_reverb(FUNCTION_DATA * function_data);
+void f_fm(FUNCTION_DATA * function_data);
 void f_mul(FUNCTION_DATA * function_data);
+void f_div(FUNCTION_DATA * function_data);
+void f_add(FUNCTION_DATA * function_data);
+void f_sub(FUNCTION_DATA * function_data);
 
 #endif /* EFFECTS_H_ */

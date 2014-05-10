@@ -35,6 +35,10 @@ F_PTR getFWrapper(char * name) {
 		return f_exp;
 	if (strcmp(name, "reverb") == 0)
 		return f_reverb;
+	if (strcmp(name, "ce") == 0)
+		return f_custom_envelope;
+	if (strcmp(name, "f1") == 0)
+		return f_lowpass;
 	if (strcmp(name, "fm") == 0)
 		return f_fm;
 	if (strcmp(name, "mul") == 0)
@@ -279,7 +283,7 @@ void f_channel(FUNCTION_DATA * function_data) {
 void f_sin_osc(FUNCTION_DATA * function_data) {
 	// freq, phase, period
 
-	if (function_data->paramSize != 4) {
+	if (function_data->paramSize != 3) {
 		printf("Wrong params - f_sin_osc\n");
 		return;
 	}
@@ -287,13 +291,7 @@ void f_sin_osc(FUNCTION_DATA * function_data) {
 	int freq = function_data->params[0]->intVal;
 	int phase = function_data->params[1]->intVal;
 	int period_frames = function_data->params[2]->intVal;
-//	int channels = function_data->params[3]->intVal;
 	int startIndex = function_data->globalData->index;
-
-//	if (channels < 1) {
-//		printf("Wrong channels (must be > 1) - f_sin_osc");
-//		channels = 1;
-//	}
 
 	if (period_frames == 0) {
 		period_frames = function_data->globalData->samplingRate;
@@ -304,9 +302,7 @@ void f_sin_osc(FUNCTION_DATA * function_data) {
 	for (int i = 0; i < (int)function_data->globalData->bufferLen; i++) {
 		float sv = sin((6.283 * freq * (startIndex + i) + phase * 3.1415 / 180)/ period_frames);
 
-//		for (int c = 0; c < channels; ++c) {
 		function_data->output[i] = sv;
-//		}
 	}
 }
 
@@ -346,7 +342,7 @@ void f_tri_osc(FUNCTION_DATA * function_data) {
 }
 
 void f_sqr_osc(FUNCTION_DATA * function_data) {
-	// freq, totalFrames -> if totalFrames == 0 -> totalFrames = global frame rate
+	// freq, period
 
 	if (function_data->paramSize != 2) {
 		printf("Wrong params - f_sqr_osc");
@@ -380,7 +376,7 @@ void f_sqr_osc(FUNCTION_DATA * function_data) {
 }
 
 void f_saw_osc(FUNCTION_DATA * function_data) {
-	// freq, totalFrames -> if totalFrames == 0 -> totalFrames = global frame rate
+	// freq, period
 
 	if (function_data->paramSize != 2) {
 		printf("Wrong params - f_saw_osc");
@@ -480,6 +476,117 @@ void f_reverb(FUNCTION_DATA * function_data) {
 		} else 	if (i + delay < function_data->globalData->bufferLen) {
 			function_data->output[i] = function_data->output[i - delay] * decay;
 		}
+	}
+}
+
+void f_lowpass(FUNCTION_DATA * function_data) {
+	// ?
+
+	int cutOffFreq = 2000;
+	int period_frames = 0; //function_data->params[1]->intVal;
+	int startIndex = function_data->globalData->index;
+
+	if (period_frames == 0) {
+		period_frames = function_data->globalData->samplingRate;
+	}
+
+	FUNCTION_BUFFERS * input_fb = (FUNCTION_BUFFERS *) function_data->input;
+
+	for (int i = 0; i < input_fb->size; ++i) {
+		input_fb->functions[i]->f_ptr(input_fb->functions[i]->f_data);
+	}
+
+	for (int i = 0; i < function_data->globalData->bufferLen; i++) {
+		if (i < 2) {
+			function_data->output[i] = input_fb->functions[0]->f_data->output[i];
+			continue;
+		}
+
+
+
+		float ang_freq = sin(6.283 * cutOffFreq * (startIndex + i)/ period_frames);
+		float qual_factor = 1.0 / sqrt(2);
+		float tmp = 1.0 / qual_factor;
+		float beta = (float)((1 - (tmp / 2) * sin(ang_freq)) / (1 + (tmp / 2) * sin(ang_freq))) / 2;
+		float gamma = (0.5 + beta) * cos(ang_freq);
+
+//		printf("WWW %f %f %f %f\n", ang_freq, qual_factor, tmp, gamma);
+
+		//low pass coef
+		float a0 = (0.5 + beta - gamma) / 2;
+		float a1 = 0.5 + beta - gamma;
+		float a2 = a0;
+		float b1 = -1 * gamma;
+		float b2 = 1 * beta;
+
+//		printf("QQQ %f %f %f %f\n", a1, a2, b1, b2);
+
+		//high pass coef
+//		float a0 = (0.5 + beta - gamma) / 2;
+//		float a1 = -(0.5 + beta - gamma);
+//		float a2 = a0;
+//		float b1 = -2 * gamma;
+//		float b2 = 2 * beta;
+
+		function_data->output[i] = a0 * input_fb->functions[0]->f_data->output[i] +
+				a1 * input_fb->functions[0]->f_data->output[i-1] +
+				a2 * input_fb->functions[0]->f_data->output[i-2] -
+				b1 * function_data->output[i - 1] -
+				b2 * function_data->output[i - 2];
+
+		function_data->output[i] *= 0.5;
+	}
+}
+
+void f_custom_envelope(FUNCTION_DATA * function_data) {
+	//freq, period, nrPoints, [x1 y1 x2 y2 x3 y3 ....] -> float array with wave coordinates
+
+	if (function_data->paramSize != 4) {
+		printf("Wrong params - f_ce\n");
+		return;
+	}
+
+	int freq = function_data->params[0]->intVal;
+	int samplingRate = function_data->params[1]->intVal;
+	int nrOfPoints = function_data->params[2]->intVal;
+	float * points = function_data->params[3]->floatListVal;
+
+	if (samplingRate == 0) {
+		samplingRate = function_data->globalData->samplingRate; // TODO ??? framesPerSecond must be multiple of channel nr + what happens if inputdata.dataLength is even/ not multiple of nr channels
+	}
+
+	samplingRate *= function_data->globalData->nrOfChannels;
+
+	int framesPerEnvelope = samplingRate / freq;
+	float unitsPerSample = 1.0 / framesPerEnvelope;
+
+	for (int i = 0; i < function_data->globalData->bufferLen; i += 1) {
+
+		int mainIndex = function_data->globalData->index + i;
+		int envelopeIndex = mainIndex % framesPerEnvelope;
+		float currentX = unitsPerSample * envelopeIndex;
+		int foundSeq = 0;
+
+		for (int var = 0; var < nrOfPoints; var += 2) {
+
+			if (currentX >= points[var] && currentX < points[var + 2]) {
+				foundSeq = 1;
+
+				float dY = points[var + 3] - points[var + 1];
+				float dX = points[var + 2] - points[var];
+				float dCX = currentX - points[var];
+				float rez = points[var + 1] + dY * dCX / dX;
+
+				function_data->output[i] = rez;
+
+				break;
+			}
+		}
+
+		if (foundSeq == 0) {
+			function_data->output[i] = 0.0;
+		}
+
 	}
 }
 

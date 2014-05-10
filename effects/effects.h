@@ -58,6 +58,8 @@ void f_sqr_osc(FUNCTION_DATA * function_data);
 void f_saw_osc(FUNCTION_DATA * function_data);
 void f_exp(FUNCTION_DATA * function_data);
 void f_reverb(FUNCTION_DATA * function_data);
+void f_lowpass(FUNCTION_DATA * function_data);
+void f_custom_envelope(FUNCTION_DATA * function_data);
 void f_fm(FUNCTION_DATA * function_data);
 void f_mul(FUNCTION_DATA * function_data);
 void f_div(FUNCTION_DATA * function_data);

@@ -49,6 +49,7 @@ typedef struct {
 F_PTR getFWrapper(char * name);
 
 void f_repeat(FUNCTION_DATA * input);
+void f_repeat_every(FUNCTION_DATA * input);
 void f_file(FUNCTION_DATA * input);
 void f_mix(FUNCTION_DATA * input);
 void f_channel(FUNCTION_DATA * input);
@@ -60,6 +61,9 @@ void f_exp(FUNCTION_DATA * function_data);
 void f_reverb(FUNCTION_DATA * function_data);
 void f_lowpass(FUNCTION_DATA * function_data);
 void f_custom_envelope(FUNCTION_DATA * function_data);
+void f_sin_osc_sum(FUNCTION_DATA * function_data);
+void f_tri_osc_sum(FUNCTION_DATA * function_data);
+void f_saw_osc_sum(FUNCTION_DATA * function_data);
 void f_fm(FUNCTION_DATA * function_data);
 void f_mul(FUNCTION_DATA * function_data);
 void f_div(FUNCTION_DATA * function_data);

@@ -136,7 +136,7 @@ void init() {
         if( err != paNoError ) goto error;
 
         printf("Play for %d seconds.\n", 1);
-        Pa_Sleep( 100 * 1000 );
+        Pa_Sleep( 1000 * 1000 );
 
         err = Pa_StopStream( stream );
         if( err != paNoError ) goto error;

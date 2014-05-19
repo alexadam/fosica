@@ -17,6 +17,8 @@ F_PTR getFWrapper(char * name) {
 
 	if (strcmp(name, "repeat") == 0)
 		return f_repeat;
+	if (strcmp(name, "repeat_every") == 0)
+		return f_repeat_every;
 	if (strcmp(name, "file") == 0)
 		return f_file;
 	if (strcmp(name, "mix") == 0)
@@ -39,6 +41,8 @@ F_PTR getFWrapper(char * name) {
 		return f_custom_envelope;
 	if (strcmp(name, "f1") == 0)
 		return f_lowpass;
+	if (strcmp(name, "sinOscSum") == 0)
+		return f_tri_osc_sum; //f_sin_osc_sum; //f_saw_osc_sum;
 	if (strcmp(name, "fm") == 0)
 		return f_fm;
 	if (strcmp(name, "mul") == 0)
@@ -52,8 +56,6 @@ F_PTR getFWrapper(char * name) {
 
 	return NULL;
 }
-
-
 
 //float sinGen(int index, int freq, unsigned long int lengthInSamples) {
 //	if (lengthInSamples == 0) {
@@ -115,14 +117,16 @@ void f_mix(FUNCTION_DATA * function_data) {
 	for (int i = 0; i < function_data->globalData->bufferLen; ++i) {
 		function_data->output[i] = 0.0;
 		for (int j = 0; j < input_fb->size; ++j) {
-			function_data->output[i] += input_fb->functions[j]->f_data->output[i] * 0.8; //TODO
+			function_data->output[i] +=
+					input_fb->functions[j]->f_data->output[i] * 0.8; //TODO
 		}
 	}
 }
 
 CACHE * localCache = NULL;
 
-sndData * getCachedSnd(char * name, char * saveName, int reverse, int samplingRate) {
+sndData * getCachedSnd(char * name, char * saveName, int reverse,
+		int samplingRate) {
 
 	if (localCache == NULL) {
 		localCache = initCache(10);
@@ -186,7 +190,7 @@ void f_repeat(FUNCTION_DATA * function_data) {
 		int mainIndex = function_data->globalData->index + i;
 		int trackIndex = mainIndex % repeat;
 
-		currentSeq = (int)trackIndex / framesPerSeq;
+		currentSeq = (int) trackIndex / framesPerSeq;
 		int foundSeq = 0;
 
 		for (int var = 0; var < nrOfPoints; var += 2) {
@@ -197,13 +201,16 @@ void f_repeat(FUNCTION_DATA * function_data) {
 				int sequenceIndex = (trackIndex - (points[var] * framesPerSeq));
 
 				if (currentSeq != lastComputedSeq) {
-					input_fb->functions[0]->f_data->globalData->index = sequenceIndex;
-					input_fb->functions[0]->f_ptr(input_fb->functions[0]->f_data);
+					input_fb->functions[0]->f_data->globalData->index =
+							sequenceIndex;
+					input_fb->functions[0]->f_ptr(
+							input_fb->functions[0]->f_data);
 					lastComputedSeq = currentSeq;
 				}
 
 				//sin(2 * 3.1415 * 5 * i / function_data->globalData->bufferLen) * 0.6;
-				function_data->output[i] = input_fb->functions[0]->f_data->output[i];
+				function_data->output[i] =
+						input_fb->functions[0]->f_data->output[i];
 
 				break;
 			}
@@ -229,12 +236,14 @@ void f_file(FUNCTION_DATA * function_data) {
 	char * samplingRateStr = int2string(function_data->params[1]->intVal);
 	char * reverseStr = int2string(function_data->params[2]->intVal);
 
-	char * newFileName = localconcat(localconcat(fileName, samplingRateStr), reverseStr);
+	char * newFileName = localconcat(localconcat(fileName, samplingRateStr),
+			reverseStr);
 
 	float bb = 0.0;
 
 	sndData* csnd;
-	csnd = getCachedSnd(fileName, newFileName, function_data->params[1]->intVal, function_data->params[2]->intVal);
+	csnd = getCachedSnd(fileName, newFileName, function_data->params[1]->intVal,
+			function_data->params[2]->intVal);
 
 	if (csnd == NULL) {
 		return;
@@ -275,7 +284,8 @@ void f_channel(FUNCTION_DATA * function_data) {
 		if (ch == channel) {
 			function_data->output[i] = 0.0;
 		} else {
-			function_data->output[i] = input_fb->functions[0]->f_data->output[i];
+			function_data->output[i] =
+					input_fb->functions[0]->f_data->output[i];
 		}
 	}
 }
@@ -299,8 +309,10 @@ void f_sin_osc(FUNCTION_DATA * function_data) {
 
 	period_frames *= function_data->globalData->nrOfChannels;
 
-	for (int i = 0; i < (int)function_data->globalData->bufferLen; i++) {
-		float sv = sin((6.283 * freq * (startIndex + i) + phase * 3.1415 / 180)/ period_frames);
+	for (int i = 0; i < (int) function_data->globalData->bufferLen; i++) {
+		float sv = sin(
+				(6.283 * freq * (startIndex + i) + phase * 3.1415 / 180)
+						/ period_frames);
 
 		function_data->output[i] = sv;
 	}
@@ -334,9 +346,9 @@ void f_tri_osc(FUNCTION_DATA * function_data) {
 //		float sv = (float)2/hper * ((startIndex + ni) - hper * floor((float)(startIndex + ni)/hper + 0.5)) / ((float)(startIndex + ni)/hper + 0.5); //spiral
 
 		if (ni % per < hper) {
-			function_data->output[i] =  4 * (float)(ni % per)/per - 1;
+			function_data->output[i] = 4 * (float) (ni % per) / per - 1;
 		} else {
-			function_data->output[i] = 3 - 4 * (float)(ni % per)/per;
+			function_data->output[i] = 3 - 4 * (float) (ni % per) / per;
 		}
 	}
 }
@@ -398,7 +410,7 @@ void f_saw_osc(FUNCTION_DATA * function_data) {
 
 	for (int i = 0; i < function_data->globalData->bufferLen; i++) {
 		int ni = startIndex + i;
-		function_data->output[i] = 2 * (float) (ni % per) / per -1;
+		function_data->output[i] = 2 * (float) (ni % per) / per - 1;
 	}
 }
 
@@ -425,6 +437,108 @@ void f_exp(FUNCTION_DATA * function_data) {
 		int ni = startIndex + i;
 		function_data->output[i] = 1 / exp(ni);
 	}
+}
+
+void f_sin_osc_sum(FUNCTION_DATA * function_data) {
+	// nrFrqa, freq list, phase, period
+
+	if (function_data->paramSize != 3) {
+		printf("Wrong params - f_sin_osc_sum\n");
+		return;
+	}
+
+	int freqSize = function_data->params[0]->intVal;
+	int * freqs = function_data->params[1]->intListVal;
+	int period_frames = function_data->params[2]->intVal;
+	int startIndex = function_data->globalData->index;
+
+	if (period_frames == 0) {
+		period_frames = function_data->globalData->samplingRate;
+	}
+
+	period_frames *= function_data->globalData->nrOfChannels;
+
+	for (int i = 0; i < (int) function_data->globalData->bufferLen; i++) {
+		float sv = 0.0;
+		for (int j = 0; j < freqSize; ++j) {
+			sv += sin((6.283 * freqs[j] * (startIndex + i)) / period_frames);
+		}
+		function_data->output[i] = sv / freqSize;
+	}
+
+}
+
+void f_tri_osc_sum(FUNCTION_DATA * function_data) {
+	// nrFrqa, freq list, phase, period
+
+	if (function_data->paramSize != 3) {
+		printf("Wrong params - f_tri_osc_sum\n");
+		return;
+	}
+
+	int freqSize = function_data->params[0]->intVal;
+	int * freqs = function_data->params[1]->intListVal;
+	int period_frames = function_data->params[2]->intVal;
+	int startIndex = function_data->globalData->index;
+
+	if (period_frames == 0) {
+		period_frames = function_data->globalData->samplingRate;
+	}
+
+	period_frames *= function_data->globalData->nrOfChannels;
+
+	float sv = 0.0;
+	for (int i = 0; i < (int) function_data->globalData->bufferLen; i++) {
+		sv = 0.0;
+		int ni = startIndex + i;
+
+		for (int j = 0; j < freqSize; ++j) {
+			int per = period_frames / freqs[j];
+			int hper = per / 2;
+
+			if (ni % per < hper) {
+				sv += 4 * (float)(ni % per) / per - 1;
+			} else {
+				sv += 3 - 4 * (float)(ni % per) / per;
+			}
+		}
+		function_data->output[i] = sv / freqSize;
+	}
+
+}
+
+void f_saw_osc_sum(FUNCTION_DATA * function_data) {
+	// nrFrqa, freq list, phase, period
+
+	if (function_data->paramSize != 3) {
+		printf("Wrong params - f_saw_osc_sum\n");
+		return;
+	}
+
+	int freqSize = function_data->params[0]->intVal;
+	int * freqs = function_data->params[1]->intListVal;
+	int period_frames = function_data->params[2]->intVal;
+	int startIndex = function_data->globalData->index;
+
+	if (period_frames == 0) {
+		period_frames = function_data->globalData->samplingRate;
+	}
+
+	period_frames *= function_data->globalData->nrOfChannels;
+
+	for (int i = 0; i < (int) function_data->globalData->bufferLen; i++) {
+		float sv = 0.0;
+		int ni = startIndex + i;
+
+		for (int j = 0; j < freqSize; ++j) {
+			int per = period_frames / freqs[j];
+
+			sv += 2 * ((float) (ni % per) / per) - 1;
+		}
+		printf("%f\n", (sv/20.0)); //TODO
+		function_data->output[i] = sv / 20.0; //(float) sv / freqSize;
+	}
+
 }
 
 void f_fm(FUNCTION_DATA * function_data) {
@@ -473,7 +587,7 @@ void f_reverb(FUNCTION_DATA * function_data) {
 	for (int i = 0; i < function_data->globalData->bufferLen - delay; i++) {
 		if (i < delay) {
 			function_data->output[i] = input_fb->functions[0]->f_data->output[i];
-		} else 	if (i + delay < function_data->globalData->bufferLen) {
+		} else if (i + delay < function_data->globalData->bufferLen) {
 			function_data->output[i] = function_data->output[i - delay] * decay;
 		}
 	}
@@ -496,45 +610,19 @@ void f_lowpass(FUNCTION_DATA * function_data) {
 		input_fb->functions[i]->f_ptr(input_fb->functions[i]->f_data);
 	}
 
+	float dt = 1.0;
+	float rc = 50.0; //1.0 / (2 * 3.1415 * cutOffFreq);
+	float alfa = (float) dt / (rc + dt);
+
+	printf("alfa %f\n", alfa);
+
 	for (int i = 0; i < function_data->globalData->bufferLen; i++) {
-		if (i < 2) {
+		if (i < 1) {
 			function_data->output[i] = input_fb->functions[0]->f_data->output[i];
 			continue;
 		}
 
-
-
-		float ang_freq = sin(6.283 * cutOffFreq * (startIndex + i)/ period_frames);
-		float qual_factor = 1.0 / sqrt(2);
-		float tmp = 1.0 / qual_factor;
-		float beta = (float)((1 - (tmp / 2) * sin(ang_freq)) / (1 + (tmp / 2) * sin(ang_freq))) / 2;
-		float gamma = (0.5 + beta) * cos(ang_freq);
-
-//		printf("WWW %f %f %f %f\n", ang_freq, qual_factor, tmp, gamma);
-
-		//low pass coef
-		float a0 = (0.5 + beta - gamma) / 2;
-		float a1 = 0.5 + beta - gamma;
-		float a2 = a0;
-		float b1 = -1 * gamma;
-		float b2 = 1 * beta;
-
-//		printf("QQQ %f %f %f %f\n", a1, a2, b1, b2);
-
-		//high pass coef
-//		float a0 = (0.5 + beta - gamma) / 2;
-//		float a1 = -(0.5 + beta - gamma);
-//		float a2 = a0;
-//		float b1 = -2 * gamma;
-//		float b2 = 2 * beta;
-
-		function_data->output[i] = a0 * input_fb->functions[0]->f_data->output[i] +
-				a1 * input_fb->functions[0]->f_data->output[i-1] +
-				a2 * input_fb->functions[0]->f_data->output[i-2] -
-				b1 * function_data->output[i - 1] -
-				b2 * function_data->output[i - 2];
-
-		function_data->output[i] *= 0.5;
+		function_data->output[i] = alfa * input_fb->functions[0]->f_data->output[i] + (1 - alfa) * function_data->output[i - 1];
 	}
 }
 
@@ -602,7 +690,8 @@ void f_mul(FUNCTION_DATA * function_data) {
 	for (int i = 0; i < function_data->globalData->bufferLen; ++i) {
 		function_data->output[i] = 1.0;
 		for (int j = 0; j < input_fb->size; ++j) {
-			function_data->output[i] *= input_fb->functions[j]->f_data->output[i];
+			function_data->output[i] *=
+					input_fb->functions[j]->f_data->output[i];
 		}
 	}
 }
@@ -619,7 +708,8 @@ void f_add(FUNCTION_DATA * function_data) {
 	for (int i = 0; i < function_data->globalData->bufferLen; ++i) {
 		function_data->output[i] = 0.0;
 		for (int j = 0; j < input_fb->size; ++j) {
-			function_data->output[i] += input_fb->functions[j]->f_data->output[i];
+			function_data->output[i] +=
+					input_fb->functions[j]->f_data->output[i];
 		}
 	}
 }
@@ -636,7 +726,8 @@ void f_sub(FUNCTION_DATA * function_data) {
 	for (int i = 0; i < function_data->globalData->bufferLen; ++i) {
 		function_data->output[i] = input_fb->functions[0]->f_data->output[i];
 		for (int j = 1; j < input_fb->size; ++j) {
-			function_data->output[i] -= input_fb->functions[j]->f_data->output[i];
+			function_data->output[i] -=
+					input_fb->functions[j]->f_data->output[i];
 		}
 	}
 }
@@ -662,8 +753,34 @@ void f_div(FUNCTION_DATA * function_data) {
 	}
 }
 
-void f_at_frame(FUNCTION_DATA * function_data) {
-	// startFrame, endFrame -> ex: at_frame,1780043,666542,<i1  (single input)
-	//TODO
+void f_repeat_every(FUNCTION_DATA * function_data) {
+	// unit, size; ex: repeat at s,i 500  (s - second, i - frame)
 
+	if (function_data->paramSize != 2) {
+		printf("Wrong params - f_repeat_every");
+		return;
+	}
+
+	char * unit = function_data->params[0]->charVal;
+	float size = function_data->params[1]->floatVal;
+	int samplingRate = function_data->globalData->samplingRate;
+
+	int repeatIndex = 0;
+
+	if (unit[0] == 'i') {
+		repeatIndex = (int) size;
+	} else if (unit[0] == 's') {
+		repeatIndex = (int) samplingRate * size;
+	}
+
+	FUNCTION_BUFFERS * input_fb = (FUNCTION_BUFFERS *) function_data->input;
+
+	int trackIndex = function_data->globalData->index % repeatIndex;
+
+	input_fb->functions[0]->f_data->globalData->index = trackIndex;
+	input_fb->functions[0]->f_ptr(input_fb->functions[0]->f_data);
+
+	for (int i = 0; i < function_data->globalData->bufferLen; i += 1) {
+		function_data->output[i] = input_fb->functions[0]->f_data->output[i];
+	}
 }
